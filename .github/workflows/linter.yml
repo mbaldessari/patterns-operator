@@ -48,5 +48,5 @@ jobs:
           VALIDATE_ALL_CODEBASE: true
           DEFAULT_BRANCH: main
           LOG_LEVE: DEBUG
-          FILTER_REGEX_ECLUDE: .*vendor/.*
+          FILTER_REGEX_EXCLUDE: .*vendor/.*
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
