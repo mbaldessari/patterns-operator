@@ -1,0 +1,7 @@
+---
+##########################
+## Hadolint config file ##
+##########################
+ignored:
+# Disable the warning: Specify version with `dnf install -y <package>-<version>`
+  - DL3041
