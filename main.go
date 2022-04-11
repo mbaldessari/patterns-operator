@@ -114,5 +114,5 @@ func printVersion() {
 	setupLog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	setupLog.Info(fmt.Sprintf("Operator Version: %s", version.Version))
 	setupLog.Info(fmt.Sprintf("Git Commit: %s", version.GitCommit))
-	setupLog.Info(fmt.Sprintf("Build Date: %s", version.BuildDate))
+	setupLog.Info(fmt.Sprintf("Build Date (bandini): %s", version.BuildDate))
 }
