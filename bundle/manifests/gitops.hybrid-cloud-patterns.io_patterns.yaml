@@ -96,6 +96,8 @@ spec:
               gitSpec:
                 properties:
                   hostname:
+                    description: Optional. FQDN of the git server if automatic parsing
+                      from TargetRepo is broken
                     type: string
                   originRepo:
                     description: Unused

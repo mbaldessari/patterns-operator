@@ -25,7 +25,7 @@ spec:
       specDescriptors:
       - displayName: Cluster Group Name
         path: clusterGroupName
-      - description: '.Name is dot separated per the helm --set syntax, such as:   global.something.field'
+      - description: '.Name is dot separated per the helm --set syntax, such as: global.something.field'
         displayName: Extra Parameters
         path: extraParameters
       - displayName: Name
