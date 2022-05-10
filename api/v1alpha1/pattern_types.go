@@ -139,9 +139,14 @@ type PatternStatus struct {
 	//+operator-sdk:csv:customresourcedefinitions:type=status
 	Version int `json:"version,omitempty"`
 
-	ClusterName   string `json:"clusterName,omitempty"`
-	ClusterDomain string `json:"clusterDomain,omitempty"`
-	ClusterID     string `json:"clusterID,omitempty"`
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	ClusterName     string `json:"clusterName,omitempty"`
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	ClusterDomain   string `json:"clusterDomain,omitempty"`
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	ClusterID       string `json:"clusterID,omitempty"`
+	//+operator-sdk:csv:customresourcedefinitions:type=status
+	ClusterPlatform string `json:"clusterPlatform,omitempty"`
 }
 
 // See: https://book.kubebuilder.io/reference/markers/crd.html

@@ -57,6 +57,14 @@ spec:
         displayName: Use CSV
         path: gitOpsSpec.useCSV
       statusDescriptors:
+      - displayName: Cluster Domain
+        path: clusterDomain
+      - displayName: Cluster ID
+        path: clusterID
+      - displayName: Cluster Name
+        path: clusterName
+      - displayName: Cluster Platform
+        path: clusterPlatform
       - description: Last error encountered by the pattern
         displayName: Last Error
         path: lastError
