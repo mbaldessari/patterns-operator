@@ -20,12 +20,12 @@ metadata:
       ]
     capabilities: Basic Install
     categories: OpenShift Optional
-    containerImage: quay.io/rhn_support_mbaldess/patterns-operator:0.0.2
+    containerImage: quay.io/rhn_support_mbaldess/patterns-operator:0.0.4
     description: An operator to deploy and manage architecture patterns from https://hybrid-cloud-patterns.io
     operators.operatorframework.io/builder: operator-sdk-v1.19.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/hybrid-cloud-patterns/patterns-operator
-  name: patterns-operator.v0.0.2
+  name: patterns-operator.v0.0.4
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -73,6 +73,9 @@ spec:
           False'
         displayName: Use CSV
         path: gitOpsSpec.useCSV
+      - description: Unseal the Vault automatically (unsecure - bandini was here)
+        displayName: Unsecure Vault Unseal
+        path: unsecureVaultUnseal
       statusDescriptors:
       - displayName: Cluster Domain
         path: clusterDomain
@@ -219,7 +222,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: quay.io/rhn_support_mbaldess/patterns-operator:0.0.2
+                image: quay.io/rhn_support_mbaldess/patterns-operator:0.0.4
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -306,4 +309,4 @@ spec:
   provider:
     name: Red Hat
     url: https://www.redhat.com/en/products/edge/validated-patterns
-  version: 0.0.2
+  version: 0.0.4

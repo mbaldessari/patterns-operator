@@ -119,6 +119,10 @@ spec:
                 required:
                 - targetRepo
                 type: object
+              unsecureVaultUnseal:
+                description: Unseal the Vault automatically (unsecure - bandini was
+                  here)
+                type: boolean
             required:
             - clusterGroupName
             - gitSpec

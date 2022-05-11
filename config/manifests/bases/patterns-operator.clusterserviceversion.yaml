@@ -56,6 +56,9 @@ spec:
           False'
         displayName: Use CSV
         path: gitOpsSpec.useCSV
+      - description: Unseal the Vault automatically (unsecure - bandini was here)
+        displayName: Unsecure Vault Unseal
+        path: unsecureVaultUnseal
       statusDescriptors:
       - displayName: Cluster Domain
         path: clusterDomain

@@ -115,4 +115,5 @@ func printVersion() {
 	setupLog.Info(fmt.Sprintf("Operator Version: %s", version.Version))
 	setupLog.Info(fmt.Sprintf("Git Commit: %s", version.GitCommit))
 	setupLog.Info(fmt.Sprintf("Build Date: %s", version.BuildDate))
+	setupLog.Info(fmt.Sprintf("BANDINI was here: %s", version.BuildDate))
 }

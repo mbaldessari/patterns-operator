@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/rhn_support_mbaldess/patterns-operator
-  newTag: 0.0.2
+  newTag: 0.0.4
