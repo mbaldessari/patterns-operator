@@ -71,9 +71,9 @@ type PatternSpec struct {
 	// Look for external changes every N minutes
 	// ReconcileMinutes int    `json:"reconcileMinutes,omitempty"`
 
-	// Unseal the Vault automatically (unsecure - bandini was here)
+	// Unseal the Vault automatically (insecure - bandini was here)
 	//+operator-sdk:csv:customresourcedefinitions:type=spec
-	UnsecureVaultUnseal bool `json:"unsecureVaultUnseal,omitempty"`
+	InsecureVaultUnseal bool `json:"insecureVaultUnseal,omitempty"`
 }
 
 type GitConfig struct {

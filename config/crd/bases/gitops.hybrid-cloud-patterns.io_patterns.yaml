@@ -119,8 +119,8 @@ spec:
                 required:
                 - targetRepo
                 type: object
-              unsecureVaultUnseal:
-                description: Unseal the Vault automatically (unsecure - bandini was
+              insecureVaultUnseal:
+                description: Unseal the Vault automatically (insecure - bandini was
                   here)
                 type: boolean
             required:
