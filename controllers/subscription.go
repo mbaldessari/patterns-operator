@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	olmclient "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned"
@@ -47,6 +48,10 @@ func newSubscription(p api.Pattern) *operatorv1alpha1.Subscription {
 	//    source: redhat-operators
 	//    sourceNamespace: openshift-marketplace
 	//    startingCSV: openshift-gitops-operator.v1.4.1
+	//    config:
+	//      env:
+	//        - name: ARGOCD_CLUSTER_CONFIG_NAMESPACES
+	//          value: "*"
 
 	spec := &operatorv1alpha1.SubscriptionSpec{
 		CatalogSource:          "redhat-operators",
@@ -54,6 +59,14 @@ func newSubscription(p api.Pattern) *operatorv1alpha1.Subscription {
 		Channel:                p.Spec.GitOpsConfig.OperatorChannel,
 		Package:                "openshift-gitops-operator",
 		InstallPlanApproval:    operatorv1alpha1.ApprovalAutomatic,
+		Config: &operatorv1alpha1.SubscriptionConfig{
+			Env: []corev1.EnvVar{
+				{
+					Name:  "ARGOCD_CLUSTER_CONFIG_NAMESPACES",
+					Value: "*",
+				},
+			},
+		},
 	}
 
 	if p.Spec.GitOpsConfig.UseCSV {
