@@ -14,7 +14,8 @@ metadata:
             "clusterGroupName": "hub",
             "gitSpec": {
               "targetRepo": "https://github.com/hybrid-cloud-patterns/multicloud-gitops"
-            }
+            },
+            "insecureVaultUnseal": true
           }
         }
       ]
@@ -73,9 +74,9 @@ spec:
           False'
         displayName: Use CSV
         path: gitOpsSpec.useCSV
-      - description: Unseal the Vault automatically (unsecure - bandini was here)
-        displayName: Unsecure Vault Unseal
-        path: unsecureVaultUnseal
+      - description: Unseal the Vault automatically (insecure - bandini was here)
+        displayName: Insecure Vault Unseal
+        path: insecureVaultUnseal
       statusDescriptors:
       - displayName: Cluster Domain
         path: clusterDomain
@@ -111,6 +112,19 @@ spec:
           verbs:
           - get
           - list
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - ""
+          resources:
+          - pods/exec
+          verbs:
+          - create
         - apiGroups:
           - argoproj.io
           resources:

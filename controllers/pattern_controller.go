@@ -68,6 +68,8 @@ type PatternReconciler struct {
 //+kubebuilder:rbac:groups=config.openshift.io,resources=ingresses,verbs=list;get
 //+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=list;get
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get
+//+kubebuilder:rbac:groups="",resources=pods,verbs=list;get
+//+kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=list;get;create;update;patch;delete
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=list;get;create;update;patch;delete
 //
@@ -190,6 +192,20 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Someone manually removed the owner ref
 		return r.actionPerformed(qualifiedInstance, "create application", fmt.Errorf("We no longer own Application %q", targetApp.Name))
 	}
+	// Unseal the vault
+	if qualifiedInstance.Spec.InsecureVaultUnseal {
+		if err := r.unsealVault(qualifiedInstance); err != nil {
+			return r.actionPerformed(qualifiedInstance, "Unseal vault not successful", err)
+		}
+		log.Printf("vault/vault-0 exists. Executing stuff:")
+		cmd := []string{
+			"touch",
+			"/tmp/foo",
+		}
+		execInPod(r.config, r.fullClient, "vault", "vault-0", "vault", cmd)
+	} else {
+		log.Printf("bandini vault was false")
+	}
 
 	// Perform validation of the site values file(s)
 	if err := r.postValidation(qualifiedInstance); err != nil {
@@ -200,6 +216,18 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.Printf("\n\x1b[32;1m\tReconcile complete\x1b[0m\n")
 
 	return ctrl.Result{}, nil
+}
+
+func (r *PatternReconciler) unsealVault(input *api.Pattern) error {
+
+	if haveNamespace(r.fullClient, "vault") == false {
+		return errors.New(fmt.Errorf("'vault' namespace not found yet"))
+	}
+	if havePod(r.fullClient, "vault", "vault-0") == false {
+		return errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
+	}
+
+	return nil
 }
 
 func (r *PatternReconciler) preValidation(input *api.Pattern) error {

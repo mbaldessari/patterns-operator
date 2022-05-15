@@ -19,8 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,8 +32,11 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/cmd/apply"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
+	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/validation"
 
 	"github.com/ghodss/yaml"
@@ -166,6 +171,46 @@ func haveNamespace(client kubernetes.Interface, name string) bool {
 		return true
 	}
 	return false
+}
+
+func havePod(client kubernetes.Interface, namespace, pod string) bool {
+	if _, err := client.CoreV1().Pods(namespace).Get(context.Background(), pod, metav1.GetOptions{}); err == nil {
+		return true
+	}
+	return false
+}
+
+func execInPod(config *rest.Config, client kubernetes.Interface, namespace, pod, container string, cmd []string) (io.Reader, io.Reader, error) {
+	req := client.CoreV1().RESTClient().Post().Resource("pods").Name(pod).Namespace(namespace).SubResource("exec").Param("container", container)
+	req.VersionedParams(
+		&v1.PodExecOptions{
+			Command: cmd,
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
+		},
+		scheme.ParameterCodec,
+	)
+	stdoutReader, outStream := io.Pipe()
+	stderrReader, errStream := io.Pipe()
+	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
+	if err != nil {
+		return nil, nil, err
+	}
+	go func() {
+		defer outStream.Close()
+		defer errStream.Close()
+		err = exec.Stream(remotecommand.StreamOptions{
+			Stdin:  nil,
+			Stdout: outStream,
+			Stderr: errStream,
+		})
+		if err != nil {
+			log.Printf("Exec failure: %s", err)
+		}
+	}()
+	return stdoutReader, stderrReader, err
 }
 
 func createOwnerRef(p *api.Pattern) metav1.OwnerReference {
