@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,6 +126,9 @@ func updateSubscription(client olmclient.Interface, target, current *operatorv1a
 		changed = true
 	} else if target.Spec.StartingCSV != current.Spec.StartingCSV {
 		log.Println("StartingCSV changed")
+		changed = true
+	} else if !reflect.DeepEqual(target.Spec.Config.Env, current.Spec.Config.Env) {
+		log.Println("Config Env changed")
 		changed = true
 	}
 
