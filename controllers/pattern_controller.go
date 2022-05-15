@@ -194,15 +194,10 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	// Unseal the vault
 	if qualifiedInstance.Spec.InsecureVaultUnseal {
-		if err := r.unsealVault(qualifiedInstance); err != nil {
+		if err := unsealVault(r.config, r.fullClient); err != nil {
 			return r.actionPerformed(qualifiedInstance, "Unseal vault not successful", err)
 		}
-		log.Printf("vault/vault-0 exists. Executing stuff:")
-		cmd := []string{
-			"touch",
-			"/tmp/foo",
-		}
-		execInPod(r.config, r.fullClient, "vault", "vault-0", "vault", cmd)
+
 	} else {
 		log.Printf("bandini vault was false")
 	}
@@ -216,18 +211,6 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.Printf("\n\x1b[32;1m\tReconcile complete\x1b[0m\n")
 
 	return ctrl.Result{}, nil
-}
-
-func (r *PatternReconciler) unsealVault(input *api.Pattern) error {
-
-	if haveNamespace(r.fullClient, "vault") == false {
-		return errors.New(fmt.Errorf("'vault' namespace not found yet"))
-	}
-	if havePod(r.fullClient, "vault", "vault-0") == false {
-		return errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
-	}
-
-	return nil
 }
 
 func (r *PatternReconciler) preValidation(input *api.Pattern) error {
