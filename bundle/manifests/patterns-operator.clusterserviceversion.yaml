@@ -126,6 +126,12 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+        - apiGroups:
           - argoproj.io
           resources:
           - applications

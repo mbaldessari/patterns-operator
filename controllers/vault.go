@@ -82,24 +82,26 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 		"roottoken": []byte(vaultInitOutput.RootToken),
 	}
 	for index, key := range vaultInitOutput.UnsealKeysHex {
-		s := key + "_" + strconv.Itoa(index)
+		s := "unsealhexkey_" + strconv.Itoa(index)
 		data[s] = []byte(key)
 	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "vault_keys",
+			Name: "vaultkeys",
 			//Labels: rc.ObjectMeta.Labels,
 		},
+		Data: data,
 	}
-	secretClient := client.CoreV1().Secrets("pattern-operator-system")
-	current, err := secretClient.Get(context.Background(), "vault_keys", metav1.GetOptions{})
+	secretClient := client.CoreV1().Secrets("patterns-operator-system")
+	current, err := secretClient.Get(context.Background(), "vaultkeys", metav1.GetOptions{})
 	if err != nil || current == nil {
 		_, err = secretClient.Create(context.Background(), secret, metav1.CreateOptions{})
 	} else {
 		_, err = secretClient.Update(context.Background(), secret, metav1.UpdateOptions{})
 	}
 	if err != nil {
+		log.Printf("Error creating secret: %s\n", err)
 		return err
 	}
 	log.Printf("Created secret")
