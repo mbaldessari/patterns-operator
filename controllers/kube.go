@@ -17,9 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 
 	v1 "k8s.io/api/core/v1"
@@ -180,7 +180,7 @@ func havePod(client kubernetes.Interface, namespace, pod string) bool {
 	return false
 }
 
-func execInPod(config *rest.Config, client kubernetes.Interface, namespace, pod, container string, cmd []string) (io.Reader, io.Reader, error) {
+func execInPod(config *rest.Config, client kubernetes.Interface, namespace, pod, container string, cmd []string) (*bytes.Buffer, *bytes.Buffer, error) {
 	req := client.CoreV1().RESTClient().Post().Resource("pods").Name(pod).Namespace(namespace).SubResource("exec").Param("container", container)
 	req.VersionedParams(
 		&v1.PodExecOptions{
@@ -192,25 +192,21 @@ func execInPod(config *rest.Config, client kubernetes.Interface, namespace, pod,
 		},
 		scheme.ParameterCodec,
 	)
-	stdoutReader, outStream := io.Pipe()
-	stderrReader, errStream := io.Pipe()
+
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
 		return nil, nil, err
 	}
-	go func() {
-		defer outStream.Close()
-		defer errStream.Close()
-		err = exec.Stream(remotecommand.StreamOptions{
-			Stdin:  nil,
-			Stdout: outStream,
-			Stderr: errStream,
-		})
-		if err != nil {
-			log.Printf("Exec failure: %s", err)
-		}
-	}()
-	return stdoutReader, stderrReader, err
+
+	var stdout, stderr bytes.Buffer
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  nil,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+
+	return &stdout, &stderr, err
 }
 
 func createOwnerRef(p *api.Pattern) metav1.OwnerReference {

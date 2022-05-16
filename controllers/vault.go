@@ -17,16 +17,93 @@ limitations under the License.
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
 	"github.com/go-errors/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	utilexec "k8s.io/client-go/util/exec"
 )
 
-func unsealVault(config *rest.Config, client kubernetes.Interface) error {
+//
+// {
+// 	"unseal_keys_b64": [
+// 	  "R/BL306DUjRQIHdkYYxheqFxr6PtZVEKtHaYNjFqBGq7",
+// 	  "+4CYavmqRWq165WJM4DqpnEqlDnECt6q+6jSmEaJBsBA",
+// 	  "tlsQ833l5k52ESK28jlZlWbegBRY+HNIJD9Yqp3cEdF6",
+// 	  "ON0wQUleo+iW4r6U0EwmoOkRhezzTke09h+rxgRDPkdo",
+// 	  "i1hmENQhAcq5t6WWxTR35YDAUjY1w8ry751CggPsB0Jk"
+// 	],
+// 	"unseal_keys_hex": [
+// 	  "47f04bdf4e83523450207764618c617aa171afa3ed65510ab4769836316a046abb",
+// 	  "fb80986af9aa456ab5eb95893380eaa6712a9439c40adeaafba8d298468906c040",
+// 	  "b65b10f37de5e64e761122b6f239599566de801458f87348243f58aa9ddc11d17a",
+// 	  "38dd3041495ea3e896e2be94d04c26a0e91185ecf34e47b4f61fabc604433e4768",
+// 	  "8b586610d42101cab9b7a596c53477e580c0523635c3caf2ef9d428203ec074264"
+// 	],
+// 	"unseal_shares": 5,
+// 	"unseal_threshold": 3,
+// 	"recovery_keys_b64": [],
+// 	"recovery_keys_hex": [],
+// 	"recovery_keys_shares": 5,
+// 	"recovery_keys_threshold": 3,
+// 	"root_token": "s.lAR1G890NPBEkzRt8Ic5kBVz"
+//   }
+type VaultOperatorInit struct {
+	UnsealKeysB64   []string `json:"unseal_keys_b64"`
+	UnsealKeysHex   []string `json:"unseal_keys_hex"`
+	UnsealShares    int      `json:"unseal_shares"`
+	UnsealThreshold int      `json:"unseal_threshold"`
+	RootToken       string   `json:"root_token"`
+}
 
+func initVaultOperator(config *rest.Config, client kubernetes.Interface) (*VaultOperatorInit, error) {
+	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "operator", "init", "-format=json"})
+	if err != nil {
+		return nil, err
+	}
+	var unmarshalled VaultOperatorInit
+	err = json.Unmarshal(stdout.Bytes(), &unmarshalled)
+	if err != nil {
+		return nil, err
+	}
+	return &unmarshalled, nil
+}
+
+func unsealVaultOperator(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
+	var errCount int = 0
+	if len(vaultInitOutput.UnsealKeysHex) == 0 || len(vaultInitOutput.UnsealKeysHex) < vaultInitOutput.UnsealThreshold {
+		return errors.New("We do not have sufficient keys to unseal the vault")
+	}
+
+	for _, key := range vaultInitOutput.UnsealKeysHex {
+		_, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "operator", "unseal", key})
+		if err != nil {
+			errCount += 1
+			log.Printf("Error while processing %s: -> %s", key, err)
+		}
+	}
+	if errCount > 0 {
+		return errors.New("Errored while calling vault operator unseal")
+	}
+
+	log.Printf("Vault successfully unsealed")
+	return nil
+}
+
+func loginVault(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
+	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "login", vaultInitOutput.RootToken})
+	if err != nil {
+		log.Printf("Error while logging in to the vault %s %s %s\n", stdout.String(), stderr.String(), err)
+		return err
+	}
+	log.Printf("Logged into the vault successfully")
+	return nil
+}
+
+func unsealVault(config *rest.Config, client kubernetes.Interface) error {
 	if haveNamespace(client, "vault") == false {
 		return errors.New(fmt.Errorf("'vault' namespace not found yet"))
 	}
@@ -34,10 +111,38 @@ func unsealVault(config *rest.Config, client kubernetes.Interface) error {
 		return errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
 	}
 	log.Printf("vault/vault-0 exists. Getting vault status:")
-	cmd := []string{
-		"vault",
-		"status",
+
+	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status"})
+	var ret int = 0
+	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
+		ret = exitErr.ExitStatus()
 	}
-	execInPod(config, client, "vault", "vault-0", "vault", cmd)
-	return nil
+	exitErr, _ := err.(utilexec.ExitError)
+	log.Printf("bandini1: %s, %s, %s\n", err, stdout.String(), stderr.String())
+	log.Printf("bandini2: %v -> %d\n", exitErr, ret)
+	// The vault is currently sealed
+	switch ret {
+	case 2: // vault is sealed
+		vaultInitOutput, err := initVaultOperator(config, client)
+		if err != nil {
+			return err
+		}
+		if err := unsealVaultOperator(config, client, vaultInitOutput); err != nil {
+			return err
+		}
+		// Now the vault is unsealed we only need to log into it
+		if err := loginVault(config, client, vaultInitOutput); err != nil {
+			return err
+		}
+		log.Printf("Vault is all unsealed and logged in")
+	case 1: // vault status returned error
+		log.Printf("Vault status returned error 1. %s, %s", stdout.String(), stderr.String())
+		return err
+	case 0:
+		log.Printf("Vault status returned ok. %s, %s", stdout.String(), stderr.String())
+		return nil
+	}
+
+	log.Printf("Vault status returned an unexpected state: %s, %s", stdout.String(), stderr.String())
+	return err
 }

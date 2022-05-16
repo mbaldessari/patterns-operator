@@ -71,7 +71,7 @@ make deploy
 
 Restart the container to pick up the latest image from quay
 ```
- oc delete pods -n patterns-operator-system --all; oc get pods -n patterns-operator-system -w
+oc delete pods -n patterns-operator-system --all; oc get pods -n patterns-operator-system -w
 ```
 
 ### Upgrade testing with OLM
