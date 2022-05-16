@@ -17,11 +17,15 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/go-errors/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	utilexec "k8s.io/client-go/util/exec"
@@ -72,6 +76,36 @@ func initVaultOperator(config *rest.Config, client kubernetes.Interface) (*Vault
 	return &unmarshalled, nil
 }
 
+func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
+	log.Printf("Adding vault keys to secrets")
+	data := map[string][]byte{
+		"roottoken": []byte(vaultInitOutput.RootToken),
+	}
+	for index, key := range vaultInitOutput.UnsealKeysHex {
+		s := key + "_" + strconv.Itoa(index)
+		data[s] = []byte(key)
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "vault_keys",
+			//Labels: rc.ObjectMeta.Labels,
+		},
+	}
+	secretClient := client.CoreV1().Secrets("pattern-operator-system")
+	current, err := secretClient.Get(context.Background(), "vault_keys", metav1.GetOptions{})
+	if err != nil || current == nil {
+		_, err = secretClient.Create(context.Background(), secret, metav1.CreateOptions{})
+	} else {
+		_, err = secretClient.Update(context.Background(), secret, metav1.UpdateOptions{})
+	}
+	if err != nil {
+		return err
+	}
+	log.Printf("Created secret")
+	return nil
+}
+
 func unsealVaultOperator(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
 	var errCount int = 0
 	if len(vaultInitOutput.UnsealKeysHex) == 0 || len(vaultInitOutput.UnsealKeysHex) < vaultInitOutput.UnsealThreshold {
@@ -117,16 +151,14 @@ func unsealVault(config *rest.Config, client kubernetes.Interface) error {
 	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
 		ret = exitErr.ExitStatus()
 	}
-	exitErr, _ := err.(utilexec.ExitError)
-	log.Printf("bandini1: %s, %s, %s\n", err, stdout.String(), stderr.String())
-	log.Printf("bandini2: %v -> %d\n", exitErr, ret)
-	// The vault is currently sealed
 	switch ret {
 	case 2: // vault is sealed
 		vaultInitOutput, err := initVaultOperator(config, client)
 		if err != nil {
 			return err
 		}
+		// store unseal keys + root token in a secret
+		addVaultSecrets(config, client, vaultInitOutput)
 		if err := unsealVaultOperator(config, client, vaultInitOutput); err != nil {
 			return err
 		}
@@ -138,7 +170,7 @@ func unsealVault(config *rest.Config, client kubernetes.Interface) error {
 	case 1: // vault status returned error
 		log.Printf("Vault status returned error 1. %s, %s", stdout.String(), stderr.String())
 		return err
-	case 0:
+	case 0: // vault is unsealed and ok
 		log.Printf("Vault status returned ok. %s, %s", stdout.String(), stderr.String())
 		return nil
 	}
