@@ -55,20 +55,49 @@ import (
 // 	"recovery_keys_threshold": 3,
 // 	"root_token": "s.lAR1G890NPBEkzRt8Ic5kBVz"
 //   }
-type VaultOperatorInit struct {
-	UnsealKeysB64   []string `json:"unseal_keys_b64"`
+// Note: We only keep the minimum needed fields around
+type VaultInitStruct struct {
 	UnsealKeysHex   []string `json:"unseal_keys_hex"`
 	UnsealShares    int      `json:"unseal_shares"`
 	UnsealThreshold int      `json:"unseal_threshold"`
 	RootToken       string   `json:"root_token"`
 }
 
-func initVaultOperator(config *rest.Config, client kubernetes.Interface) (*VaultOperatorInit, error) {
+// {
+// 	"type": "shamir",
+// 	"initialized": false,
+// 	"sealed": true,
+// 	"t": 0,
+// 	"n": 0,
+// 	"progress": 0,
+// 	"nonce": "",
+// 	"version": "1.9.2",
+// 	"migration": false,
+// 	"recovery_seal": false,
+// 	"storage_type": "file",
+// 	"ha_enabled": false,
+// 	"active_time": "0001-01-01T00:00:00Z"
+//   }
+type VaultStatus struct {
+	Type        string `json:"type"`
+	Initialized bool   `json:"initialized"`
+	Sealed      bool   `json:"sealed"`
+	T           int    `json:"t"`
+	N           int    `json:"n"`
+	Progress    int    `json:"progress"`
+	Version     string `json:"version"`
+	StorageType string `json:"storage_type"`
+	HaEnabled   bool   `json:"ha_enabled"`
+}
+
+const vaultSecretName string = "vaultkeys"
+
+func vaultOperatorInit(config *rest.Config, client kubernetes.Interface) (*VaultInitStruct, error) {
 	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "operator", "init", "-format=json"})
 	if err != nil {
 		return nil, err
 	}
-	var unmarshalled VaultOperatorInit
+	var unmarshalled VaultInitStruct
 	err = json.Unmarshal(stdout.Bytes(), &unmarshalled)
 	if err != nil {
 		return nil, err
@@ -76,7 +105,7 @@ func initVaultOperator(config *rest.Config, client kubernetes.Interface) (*Vault
 	return &unmarshalled, nil
 }
 
-func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
+func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultInitStruct) error {
 	log.Printf("Adding vault keys to secrets")
 	data := map[string][]byte{
 		"roottoken": []byte(vaultInitOutput.RootToken),
@@ -85,17 +114,18 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 		s := "unsealhexkey_" + strconv.Itoa(index)
 		data[s] = []byte(key)
 	}
+	data["keyscount"] = []byte(strconv.Itoa(len(vaultInitOutput.UnsealKeysHex)))
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "vaultkeys",
-			//Labels: rc.ObjectMeta.Labels,
+			Name: vaultSecretName,
 		},
 		Data: data,
 	}
+	// FIXME: this is not always 'patterns-operator-system' it is 'openshift-operators' when installing via UI
 	secretClient := client.CoreV1().Secrets("patterns-operator-system")
-	current, err := secretClient.Get(context.Background(), "vaultkeys", metav1.GetOptions{})
-	if err != nil || current == nil {
+	secret, err := secretClient.Get(context.Background(), vaultSecretName, metav1.GetOptions{})
+	if err != nil || secret == nil {
 		_, err = secretClient.Create(context.Background(), secret, metav1.CreateOptions{})
 	} else {
 		_, err = secretClient.Update(context.Background(), secret, metav1.UpdateOptions{})
@@ -108,7 +138,32 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 	return nil
 }
 
-func unsealVaultOperator(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
+func getVaultStructFromSecrets(config *rest.Config, client kubernetes.Interface) (*VaultInitStruct, error) {
+	// If the vault is sealed we take the unseal keys in the k8s secret and use them to unseal the vault
+	// FIXME: this is not always 'patterns-operator-system' it is 'openshift-operators' when installing via UI
+	secretClient := client.CoreV1().Secrets("patterns-operator-system")
+	secret, err := secretClient.Get(context.Background(), "vaultkeys", metav1.GetOptions{})
+	if err != nil || secret == nil {
+		return nil, errors.New(fmt.Errorf("We called vaultUnseal but there were no secrets present: %s", err))
+	}
+	count, err := strconv.Atoi(string(secret.Data["keyscount"]))
+	if err != nil {
+		return nil, errors.New(fmt.Errorf("Converting keys count failed: %s", err))
+	}
+	var v VaultInitStruct
+	v.RootToken = string(secret.Data["roottoken"])
+	v.UnsealKeysHex = []string{}
+	for i := 0; i < count; i++ {
+		v.UnsealKeysHex = append(v.UnsealKeysHex, string(secret.Data["unsealhexkey_"+strconv.Itoa(i)]))
+	}
+	err = unsealVaultOperator(config, client, &v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func unsealVaultOperator(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultInitStruct) error {
 	var errCount int = 0
 	if len(vaultInitOutput.UnsealKeysHex) == 0 || len(vaultInitOutput.UnsealKeysHex) < vaultInitOutput.UnsealThreshold {
 		return errors.New("We do not have sufficient keys to unseal the vault")
@@ -129,54 +184,90 @@ func unsealVaultOperator(config *rest.Config, client kubernetes.Interface, vault
 	return nil
 }
 
-func loginVault(config *rest.Config, client kubernetes.Interface, vaultInitOutput *VaultOperatorInit) error {
-	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "login", vaultInitOutput.RootToken})
+func vaultStatus(config *rest.Config, client kubernetes.Interface) (*VaultStatus, error) {
+	if haveNamespace(client, "vault") == false {
+		return nil, errors.New(fmt.Errorf("'vault' namespace not found yet"))
+	}
+	if havePod(client, "vault", "vault-0") == false {
+		return nil, errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
+	}
+	log.Printf("vault/vault-0 exists. Getting vault status:")
+	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status", "-format=json"})
+	if err != nil {
+		return nil, err
+	}
+	var unmarshalled VaultStatus
+	err = json.Unmarshal(stdout.Bytes(), &unmarshalled)
+	if err != nil {
+		return nil, err
+	}
+	return &unmarshalled, nil
+}
+
+func vaultInitialize(config *rest.Config, client kubernetes.Interface) error {
+	status, err := vaultStatus(config, client)
+	if err != nil {
+		return err
+	}
+	if status.Initialized == true {
+		return nil
+	}
+	// If the vault is not initialized we call 'vault operator init -format=json' and store the unseal keys in k8s
+	vaultKeys, err := vaultOperatorInit(config, client)
+	if err != nil {
+		return err
+	}
+
+	// Let's store the keys into a secret
+	if err = addVaultSecrets(config, client, vaultKeys); err != nil {
+		return err
+	}
+	return nil
+}
+
+func vaultUnseal(config *rest.Config, client kubernetes.Interface) error {
+	status, err := vaultStatus(config, client)
+	if err != nil {
+		return err
+	}
+	if status.Sealed == false {
+		return nil
+	}
+	if status.Initialized == false {
+		return errors.New("Vault is sealed but not initialized. This is a non-expected state!")
+	}
+	v, err := getVaultStructFromSecrets(config, client)
+	if err != nil {
+		return err
+	}
+	err = unsealVaultOperator(config, client, v)
+	return err
+}
+
+func vaultLogin(config *rest.Config, client kubernetes.Interface) error {
+	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "token", "lookup"})
+	// we are already logged in. Nothing else to do here
+	if err == nil {
+		return nil
+	}
+	var ret int = 0
+	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
+		ret = exitErr.ExitStatus()
+	}
+	// There has been a generic error while looking up the token
+	if ret == 1 || ret > 2 {
+		return errors.New(fmt.Errorf("Generic error while looking up vault token: %s,%s", stdout, stderr))
+	}
+	v, err := getVaultStructFromSecrets(config, client)
+	if err != nil {
+		return err
+	}
+	// The user does not have a token so we must login using the root token
+	stdout, stderr, err = execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "login", v.RootToken})
 	if err != nil {
 		log.Printf("Error while logging in to the vault %s %s %s\n", stdout.String(), stderr.String(), err)
 		return err
 	}
 	log.Printf("Logged into the vault successfully")
 	return nil
-}
-
-func unsealVault(config *rest.Config, client kubernetes.Interface) error {
-	if haveNamespace(client, "vault") == false {
-		return errors.New(fmt.Errorf("'vault' namespace not found yet"))
-	}
-	if havePod(client, "vault", "vault-0") == false {
-		return errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
-	}
-	log.Printf("vault/vault-0 exists. Getting vault status:")
-
-	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status"})
-	var ret int = 0
-	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
-		ret = exitErr.ExitStatus()
-	}
-	switch ret {
-	case 2: // vault is sealed
-		vaultInitOutput, err := initVaultOperator(config, client)
-		if err != nil {
-			return err
-		}
-		// store unseal keys + root token in a secret
-		addVaultSecrets(config, client, vaultInitOutput)
-		if err := unsealVaultOperator(config, client, vaultInitOutput); err != nil {
-			return err
-		}
-		// Now the vault is unsealed we only need to log into it
-		if err := loginVault(config, client, vaultInitOutput); err != nil {
-			return err
-		}
-		log.Printf("Vault is all unsealed and logged in")
-	case 1: // vault status returned error
-		log.Printf("Vault status returned error 1. %s, %s", stdout.String(), stderr.String())
-		return err
-	case 0: // vault is unsealed and ok
-		log.Printf("Vault status returned ok. %s, %s", stdout.String(), stderr.String())
-		return nil
-	}
-
-	log.Printf("Vault status returned an unexpected state: %s, %s", stdout.String(), stderr.String())
-	return err
 }

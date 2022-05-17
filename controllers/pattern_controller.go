@@ -195,12 +195,16 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	// Unseal the vault
 	if qualifiedInstance.Spec.InsecureVaultUnseal {
-		if err := unsealVault(r.config, r.fullClient); err != nil {
+		log.Printf("Insecure Vault set to true")
+		if err := vaultInitialize(r.config, r.fullClient); err != nil {
+			return r.actionPerformed(qualifiedInstance, "Initialize vault not successful", err)
+		}
+		if err := vaultUnseal(r.config, r.fullClient); err != nil {
 			return r.actionPerformed(qualifiedInstance, "Unseal vault not successful", err)
 		}
-
-	} else {
-		log.Printf("bandini vault was false")
+		if err := vaultLogin(r.config, r.fullClient); err != nil {
+			return r.actionPerformed(qualifiedInstance, "Login vault not successful", err)
+		}
 	}
 
 	// Perform validation of the site values file(s)
