@@ -124,8 +124,8 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 	}
 	// FIXME: this is not always 'patterns-operator-system' it is 'openshift-operators' when installing via UI
 	secretClient := client.CoreV1().Secrets("patterns-operator-system")
-	secret, err := secretClient.Get(context.Background(), vaultSecretName, metav1.GetOptions{})
-	if err != nil || secret == nil {
+	current, err := secretClient.Get(context.Background(), vaultSecretName, metav1.GetOptions{})
+	if err != nil || current == nil {
 		_, err = secretClient.Create(context.Background(), secret, metav1.CreateOptions{})
 	} else {
 		_, err = secretClient.Update(context.Background(), secret, metav1.UpdateOptions{})
@@ -193,7 +193,12 @@ func vaultStatus(config *rest.Config, client kubernetes.Interface) (*VaultStatus
 	}
 	log.Printf("vault/vault-0 exists. Getting vault status:")
 	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status", "-format=json"})
-	if err != nil {
+	var ret int = 0
+	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
+		ret = exitErr.ExitStatus()
+	}
+	// We only error out with rc=1, because rc=2 means sealed
+	if ret == 1 {
 		return nil, err
 	}
 	var unmarshalled VaultStatus

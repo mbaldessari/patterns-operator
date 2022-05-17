@@ -131,6 +131,7 @@ spec:
           - secrets
           verbs:
           - create
+          - get
         - apiGroups:
           - argoproj.io
           resources:
