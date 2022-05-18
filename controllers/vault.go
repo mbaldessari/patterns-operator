@@ -91,16 +91,19 @@ type VaultStatus struct {
 }
 
 const vaultSecretName string = "vaultkeys"
+const operatorNamespace string = "patterns-operator-system"
 
 func vaultOperatorInit(config *rest.Config, client kubernetes.Interface) (*VaultInitStruct, error) {
-	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "operator", "init", "-format=json"})
+	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "operator", "init", "-format=json"})
 	if err != nil {
-		return nil, err
+		newerr := fmt.Errorf("%v - %s - %s", err, stdout, stderr)
+		return nil, newerr
 	}
 	var unmarshalled VaultInitStruct
 	err = json.Unmarshal(stdout.Bytes(), &unmarshalled)
 	if err != nil {
-		return nil, err
+		newerr := fmt.Errorf("%v - %s - %s", err, stdout, stderr)
+		return nil, newerr
 	}
 	return &unmarshalled, nil
 }
@@ -122,8 +125,7 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 		},
 		Data: data,
 	}
-	// FIXME: this is not always 'patterns-operator-system' it is 'openshift-operators' when installing via UI
-	secretClient := client.CoreV1().Secrets("patterns-operator-system")
+	secretClient := client.CoreV1().Secrets(operatorNamespace)
 	current, err := secretClient.Get(context.Background(), vaultSecretName, metav1.GetOptions{})
 	if err != nil || current == nil {
 		_, err = secretClient.Create(context.Background(), secret, metav1.CreateOptions{})
@@ -140,8 +142,7 @@ func addVaultSecrets(config *rest.Config, client kubernetes.Interface, vaultInit
 
 func getVaultStructFromSecrets(config *rest.Config, client kubernetes.Interface) (*VaultInitStruct, error) {
 	// If the vault is sealed we take the unseal keys in the k8s secret and use them to unseal the vault
-	// FIXME: this is not always 'patterns-operator-system' it is 'openshift-operators' when installing via UI
-	secretClient := client.CoreV1().Secrets("patterns-operator-system")
+	secretClient := client.CoreV1().Secrets(operatorNamespace)
 	secret, err := secretClient.Get(context.Background(), "vaultkeys", metav1.GetOptions{})
 	if err != nil || secret == nil {
 		return nil, errors.New(fmt.Errorf("We called vaultUnseal but there were no secrets present: %s", err))
@@ -192,19 +193,21 @@ func vaultStatus(config *rest.Config, client kubernetes.Interface) (*VaultStatus
 		return nil, errors.New(fmt.Errorf("'vault/vault-0' pod not found yet"))
 	}
 	log.Printf("vault/vault-0 exists. Getting vault status:")
-	stdout, _, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status", "-format=json"})
+	stdout, stderr, err := execInPod(config, client, "vault", "vault-0", "vault", []string{"vault", "status", "-format=json"})
 	var ret int = 0
 	if exitErr, ok := err.(utilexec.ExitError); ok && exitErr.Exited() {
 		ret = exitErr.ExitStatus()
 	}
 	// We only error out with rc=1, because rc=2 means sealed
 	if ret == 1 {
-		return nil, err
+		newerr := fmt.Errorf("Vault status error: %v - %s - %s", err, stdout.String(), stderr.String())
+		return nil, errors.New(newerr)
 	}
 	var unmarshalled VaultStatus
 	err = json.Unmarshal(stdout.Bytes(), &unmarshalled)
 	if err != nil {
-		return nil, err
+		newerr := fmt.Errorf("Vault status Json parsing error: %v - %s - %s", err, stdout, stderr)
+		return nil, errors.New(newerr)
 	}
 	return &unmarshalled, nil
 }
