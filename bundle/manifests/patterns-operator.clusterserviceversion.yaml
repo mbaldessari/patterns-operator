@@ -120,12 +120,6 @@ spec:
           - get
           - list
         - apiGroups:
-          - ""
-          resources:
-          - pods/exec
-          verbs:
-          - create
-        - apiGroups:
           - argoproj.io
           resources:
           - applications
@@ -304,6 +298,12 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - pods/exec
+          verbs:
+          - create
         - apiGroups:
           - ""
           resources:

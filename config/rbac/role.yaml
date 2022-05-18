@@ -21,12 +21,6 @@ rules:
   - get
   - list
 - apiGroups:
-  - ""
-  resources:
-  - pods/exec
-  verbs:
-  - create
-- apiGroups:
   - argoproj.io
   resources:
   - applications
@@ -104,6 +98,12 @@ metadata:
   name: manager-role
   namespace: patterns-operator-system
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:
