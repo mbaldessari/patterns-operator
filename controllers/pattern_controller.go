@@ -70,7 +70,7 @@ type PatternReconciler struct {
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get
 //+kubebuilder:rbac:groups="",resources=pods,verbs=list;get
 //+kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
-//+kubebuilder:rbac:groups="",resources=secrets,verbs=create;get
+//+kubebuilder:rbac:groups="",namespace=patterns-operator-system,resources=secrets,verbs=create;get
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=list;get;create;update;patch;delete
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=list;get;create;update;patch;delete
 //

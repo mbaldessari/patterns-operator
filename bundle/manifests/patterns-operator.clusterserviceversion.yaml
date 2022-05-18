@@ -126,13 +126,6 @@ spec:
           verbs:
           - create
         - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - get
-        - apiGroups:
           - argoproj.io
           resources:
           - applications
@@ -311,6 +304,13 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - get
         serviceAccountName: patterns-operator-controller-manager
     strategy: deployment
   installModes:
