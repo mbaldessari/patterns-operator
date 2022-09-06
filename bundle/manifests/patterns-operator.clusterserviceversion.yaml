@@ -137,14 +137,14 @@ spec:
         - apiGroups:
           - config.openshift.io
           resources:
-          - infrastructures
+          - dnses
           verbs:
           - get
           - list
         - apiGroups:
           - config.openshift.io
           resources:
-          - ingresses
+          - infrastructures
           verbs:
           - get
           - list

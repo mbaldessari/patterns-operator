@@ -69,7 +69,7 @@ type PatternReconciler struct {
 //+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=patterns/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=patterns/finalizers,verbs=update
 //+kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=list;get
-//+kubebuilder:rbac:groups=config.openshift.io,resources=ingresses,verbs=list;get
+//+kubebuilder:rbac:groups=config.openshift.io,resources=dnses,verbs=list;get
 //+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=list;get
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=list;get;create;update;patch;delete
@@ -271,16 +271,16 @@ func (r *PatternReconciler) applyDefaults(input *api.Pattern) (error, *api.Patte
 
 	// Derive cluster and domain names
 	// oc get Ingress.config.openshift.io/cluster -o jsonpath='{.spec.domain}'
-	clusterIngress, err := r.configClient.ConfigV1().Ingresses().Get(context.Background(), "cluster", metav1.GetOptions{})
+	clusterDNS, err := r.configClient.ConfigV1().DNSes().Get(context.Background(), "cluster", metav1.GetOptions{})
 	if err != nil {
 		return err, output
 	}
 
 	// "apps.mycluster.blueprints.rhecoeng.com"
-	ss := strings.Split(clusterIngress.Spec.Domain, ".")
+	ss := strings.Split(clusterDNS.Spec.BaseDomain, ".")
 
-	output.Status.ClusterName = ss[1]
-	output.Status.ClusterDomain = clusterIngress.Spec.Domain
+	output.Status.ClusterName = ss[0]
+	output.Status.ClusterDomain = clusterDNS.Spec.BaseDomain
 
 	if len(output.Spec.GitConfig.TargetRevision) == 0 {
 		output.Spec.GitConfig.TargetRevision = "main"
