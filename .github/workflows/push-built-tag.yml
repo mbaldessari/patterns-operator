@@ -34,7 +34,7 @@ jobs:
             failed=1
           fi
           if [ ${failed} -eq 1 ]; then
-            echo "Erroring out"
+            echo "Erroring out due to missing secrets"
             exit 1
           fi
 
