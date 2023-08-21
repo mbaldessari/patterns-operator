@@ -41,5 +41,5 @@ jobs:
         run: |-
           export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
           make docker-build
-          podman login -u="${{ secrets.QUAY_ROBOT_USER }}" -p="${{ secrets.QUAY_ROBOT_TOKEN }}" quay.io
-          podman images
+          docker login -u="${{ secrets.QUAY_ROBOT_USER }}" -p="${{ secrets.QUAY_ROBOT_TOKEN }}" quay.io
+          docker images
