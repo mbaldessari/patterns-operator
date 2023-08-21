@@ -1,0 +1,41 @@
+---
+name: vp-patterns/update-quay-image
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  build_and_push_image:
+    name: Build and push pattern-operator image to quay.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Check that tag version corresponds to metadata version
+        run: |-
+          export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
+          export TAG=${{ github.ref_name }}
+          if [ "${VERSION}" != "${TAG}" ]; then
+            echo "Version in metadata ${VERSION} whereas tag is different: ${TAG}"
+            exit 1
+          fi
+
+      - name: Check that both QUAY_ROBOT_USER and QUAY_ROBOT_TOKEN exist
+        run: |-
+          failed=0
+          if [ ${{ secrets.QUAY_ROBOT_USER }} ]; then
+            echo "QUAY_ROBOT_USER secret missing"
+            failed=1
+          fi
+          if [ ${{ secrets.QUAY_ROBOT_TOKEN }} ]; then
+            echo "QUAY_ROBOT_TOKEN secret missing"
+            failed=1
+          fi
+          if [ ${failed} -eq 1 ]; then
+            echo "Erroring out"
+            exit 1
+          fi
+
+      - name: Docker Build
+        run: make docker-build
