@@ -25,11 +25,11 @@ jobs:
       - name: Check that both QUAY_ROBOT_USER and QUAY_ROBOT_TOKEN exist
         run: |-
           failed=0
-          if [ ${{ secrets.QUAY_ROBOT_USER }} ]; then
+          if [ -z "${{ secrets.QUAY_ROBOT_USER }}" ]; then
             echo "QUAY_ROBOT_USER secret missing"
             failed=1
           fi
-          if [ ${{ secrets.QUAY_ROBOT_TOKEN }} ]; then
+          if [ -z "${{ secrets.QUAY_ROBOT_TOKEN }}" ]; then
             echo "QUAY_ROBOT_TOKEN secret missing"
             failed=1
           fi
