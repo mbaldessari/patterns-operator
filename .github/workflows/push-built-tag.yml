@@ -45,4 +45,3 @@ jobs:
           docker tag quay.io/hybridcloudpatterns/patterns-operator:${VERSION} quay.io/rhn_support_mbaldess/patterns-operator:${VERSION}
           docker images
           docker push quay.io/rhn_support_mbaldess/patterns-operator:${VERSION}
-
