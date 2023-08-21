@@ -14,9 +14,8 @@ jobs:
 
       - name: Check that tag version corresponds to metadata version
         run: |-
-          exit 0
-          export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
-          export TAG=${{ github.ref_name }}
+          VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
+          TAG=${{ github.ref_name }}
           if [ "${VERSION}" != "${TAG}" ]; then
             echo "Version in metadata ${VERSION} whereas tag is different: ${TAG}"
             exit 1
@@ -40,3 +39,8 @@ jobs:
 
       - name: Docker Build
         run: make docker-build
+
+      - name: Push container to quay.io
+        run: |-
+          podman login -u="${{ secrets.QUAY_ROBOT_USER }}" -p="${{ secrets.QUAY_ROBOT_TOKEN }}" quay.io
+          podman images
