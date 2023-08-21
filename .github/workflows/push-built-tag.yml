@@ -41,5 +41,8 @@ jobs:
         run: |-
           export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
           make docker-build
-          docker login -u="${{ secrets.QUAY_ROBOT_USER }}" -p="${{ secrets.QUAY_ROBOT_TOKEN }}" quay.io
+          echo "${{ secrets.QUAY_ROBOT_TOKEN }}" | docker login -u="${{ secrets.QUAY_ROBOT_USER }}" --password-stdin quay.io
+          docker tag quay.io/hybridcloudpatterns/patterns-operator:${VERSION} quay.io/rhn_support_mbaldess/patterns-operator:${VERSION}
           docker images
+          docker push quay.io/rhn_support_mbaldess/patterns-operator:${VERSION}
+
