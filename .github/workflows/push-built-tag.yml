@@ -37,10 +37,9 @@ jobs:
             exit 1
           fi
 
-      - name: Docker Build
-        run: make docker-build
-
-      - name: Push container to quay.io
+      - name: Build container and push it to quay.io
         run: |-
+          export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
+          make docker-build
           podman login -u="${{ secrets.QUAY_ROBOT_USER }}" -p="${{ secrets.QUAY_ROBOT_TOKEN }}" quay.io
           podman images
