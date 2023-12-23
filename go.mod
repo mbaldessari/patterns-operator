@@ -19,7 +19,7 @@ require (
 	go.uber.org/mock v0.4.0
 	golang.org/x/crypto v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.9.4
+	helm.sh/helm/v3 v3.10.3
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v1.5.2
@@ -31,7 +31,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/BurntSushi/toml v1.0.0 // indirect
+	github.com/BurntSushi/toml v1.1.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.3 // indirect
