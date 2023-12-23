@@ -258,6 +258,11 @@ const (
 	EnvRedisName = "ARGOCD_REDIS_NAME"
 	// EnvRedisHaProxyName is the name of the Argo CD Redis HA proxy component, as specified by the value under the LabelKeyAppName label key.
 	EnvRedisHaProxyName = "ARGOCD_REDIS_HAPROXY_NAME"
+	// EnvGRPCKeepAliveMin defines the GRPCKeepAliveEnforcementMinimum, used in the grpc.KeepaliveEnforcementPolicy. Expects a "Duration" format (e.g. 10s).
+	EnvGRPCKeepAliveMin = "ARGOCD_GRPC_KEEP_ALIVE_MIN"
+	// EnvServerSideDiff defines the env var used to enable ServerSide Diff feature.
+	// If defined, value must be "true" or "false".
+	EnvServerSideDiff = "ARGOCD_APPLICATION_CONTROLLER_SERVER_SIDE_DIFF"
 )
 
 // Config Management Plugin related constants
@@ -351,10 +356,25 @@ const (
 
 // gRPC settings
 const (
-	GRPCKeepAliveEnforcementMinimum = 10 * time.Second
-	// GRPCKeepAliveTime is 2x enforcement minimum to ensure network jitter does not introduce ENHANCE_YOUR_CALM errors
-	GRPCKeepAliveTime = 2 * GRPCKeepAliveEnforcementMinimum
+	defaultGRPCKeepAliveEnforcementMinimum = 10 * time.Second
 )
+
+func GetGRPCKeepAliveEnforcementMinimum() time.Duration {
+	if GRPCKeepAliveMinStr := os.Getenv(EnvGRPCKeepAliveMin); GRPCKeepAliveMinStr != "" {
+		GRPCKeepAliveMin, err := time.ParseDuration(GRPCKeepAliveMinStr)
+		if err != nil {
+			logrus.Warnf("invalid env var value for %s: cannot parse: %s. Default value %s will be used.", EnvGRPCKeepAliveMin, err, defaultGRPCKeepAliveEnforcementMinimum)
+			return defaultGRPCKeepAliveEnforcementMinimum
+		}
+		return GRPCKeepAliveMin
+	}
+	return defaultGRPCKeepAliveEnforcementMinimum
+}
+
+func GetGRPCKeepAliveTime() time.Duration {
+	// GRPCKeepAliveTime is 2x enforcement minimum to ensure network jitter does not introduce ENHANCE_YOUR_CALM errors
+	return 2 * GetGRPCKeepAliveEnforcementMinimum()
+}
 
 // Security severity logging
 const (
