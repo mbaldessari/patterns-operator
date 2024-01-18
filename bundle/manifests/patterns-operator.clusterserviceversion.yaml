@@ -54,6 +54,13 @@ spec:
       displayName: Gitea Server
       kind: GiteaServer
       name: giteaservers.gitops.hybrid-cloud-patterns.io
+      statusDescriptors:
+      - description: Last error encountered by the pattern
+        displayName: Last Error
+        path: lastError
+      - description: Last action related to the Gitea deployment
+        displayName: Last Step
+        path: lastStep
       version: v1alpha1
     - description: Pattern is the Schema for the patterns API
       displayName: Pattern
@@ -216,12 +223,72 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - persistentvolume
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
           - secrets
           verbs:
           - create
           - get
           - update
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - apps.openshift.io
+          resources:
+          - deploymentconfigs
+          verbs:
+          - '*'
         - apiGroups:
           - argoproj.io
           resources:
@@ -342,6 +409,19 @@ spec:
           - list
           - patch
           - update
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          - routes/custom-host
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - authentication.k8s.io
           resources:
