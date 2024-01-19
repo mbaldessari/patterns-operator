@@ -333,6 +333,25 @@ spec:
           - get
           - list
         - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - create
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - gitops.hybrid-cloud-patterns.io
           resources:
           - giteaservers
