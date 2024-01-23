@@ -231,6 +231,7 @@ spec:
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -242,6 +243,7 @@ spec:
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -253,6 +255,7 @@ spec:
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - ""
           resources:
@@ -338,7 +341,12 @@ spec:
           - namespaces
           verbs:
           - create
+          - delete
           - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - ""
           resources:
