@@ -43,7 +43,7 @@ import (
 
 const (
 	letterBytes  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	specialBytes = "!@#$%^&*()_+-=[]{}\\|;':\",.<>/?`~"
+	specialBytes = "!@#$%^&*()_+=-"
 	numBytes     = "0123456789"
 )
 
