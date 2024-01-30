@@ -26,6 +26,10 @@ import (
 	"path"
 	"strings"
 
+	// Added to support generatePassword
+	"math/rand"
+	"time"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-errors/errors"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
@@ -35,6 +39,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
+)
+
+const (
+	letterBytes  = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	specialBytes = "!@#$%^&*()_+-=[]{}\\|;':\",.<>/?`~"
+	numBytes     = "0123456789"
 )
 
 var (

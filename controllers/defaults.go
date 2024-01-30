@@ -71,7 +71,6 @@ const (
 	ReleaseName = "gitea"
 	// Namespace for the Gitea resources
 	Gitea_Namespace = "gitea"
-	// args            = map[string]string{}
 )
 
 // Default constants
