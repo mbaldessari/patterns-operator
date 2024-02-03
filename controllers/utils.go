@@ -28,7 +28,6 @@ import (
 
 	// Added to support generatePassword
 	"math/rand"
-	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-errors/errors"
