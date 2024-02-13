@@ -151,7 +151,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// We don't care what the name of the instance is. If there's one present
 		// we assume that the Gitea Server instance is operational.
 		listOpts := client.ListOptions{
-			Namespace: Gitea_Namespace,
+			Namespace: GiteaNamespace,
 		}
 		giteaServerInstanceList := &api.GiteaServerList{}
 		err = r.Client.List(context.Background(), giteaServerInstanceList, &listOpts)
@@ -162,13 +162,13 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				// Create the GiteaServer instance if not found so that the GiteaServer controller
 				// deploys the Gitea instance
 				giteaServerInstance := &api.GiteaServer{
-					ObjectMeta: metav1.ObjectMeta{Name: GiteaServer_Default_Name, Namespace: instance.Namespace},
+					ObjectMeta: metav1.ObjectMeta{Name: GiteaServerDefaultName, Namespace: instance.Namespace},
 					Spec: api.GiteaServerSpec{
-						HelmChartUrl:     Helm_Chart_Repo_URL,
-						HelmRepoName:     RepoName,
-						HelmChartName:    ChartName,
-						HelmChartVersion: Gitea_Default_Version,
-						HelmReleaseName:  ReleaseName,
+						HelmChartUrl:     GiteaHelmRepoUrl,
+						HelmRepoName:     GiteaRepoName,
+						HelmChartName:    GiteaChartName,
+						HelmChartVersion: GiteaDefaultChartVersion,
+						HelmReleaseName:  GiteaReleaseName,
 					},
 				}
 				if err = r.Client.Create(context.Background(), giteaServerInstance); err != nil {
@@ -180,7 +180,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		// Let's get the GiteaServer route
-		giteaRouteURL, err := getRoute(r.Client, "gitea-route", Gitea_Namespace)
+		giteaRouteURL, err := getRoute(r.Client, "gitea-route", GiteaNamespace)
 		if err != nil {
 			return r.actionPerformed(instance, "GiteaServer route not ready", err)
 		}
@@ -198,14 +198,14 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// We use the gitea_admin user
 		giteaRepoURL := giteaRouteURL
 		giteaRepoURL += "/"
-		giteaRepoURL += Gitea_Admin_User
+		giteaRepoURL += GiteaAdminUser
 		giteaRepoURL += "/"
 		giteaRepoURL += upstreamRepoName
 
 		if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
 			// Get the gitea_admin secret
 			// oc get secret gitea-admin-secret -o yaml
-			secret, err := getSecret(r.Client, Gitea_Admin_Secret_Name, Gitea_Namespace)
+			secret, err := getSecret(r.Client, GiteaAdminSecretName, GiteaNamespace)
 			if err != nil {
 				return r.actionPerformed(instance, "Gitea Admin Secret", err)
 			}

@@ -58,23 +58,23 @@ var PatternsOperatorConfig GitOpsConfig
 // Gitea chart defaults
 const (
 	// URL to the Validated Patterns Helm chart repo
-	Helm_Chart_Repo_URL = "https://charts.validatedpatterns.io/"
+	GiteaHelmRepoUrl = "https://charts.validatedpatterns.io/"
 	// Repo name for the Validated Patterns Helm repo
-	RepoName = "helm-charts"
+	GiteaRepoName = "helm-charts"
 	// Gitea chart name in the Validated Patterns repo
-	ChartName = "gitea-chart"
+	GiteaChartName = "gitea-chart"
 	// Release name used by the Helm SDK
-	ReleaseName = "gitea"
+	GiteaReleaseName = "gitea"
 	// Namespace for the Gitea resources
-	Gitea_Namespace = "vp-gitea"
+	GiteaNamespace = "vp-gitea"
 	// Our gitea-chart default version
-	Gitea_Default_Version = "0.0.3"
+	GiteaDefaultChartVersion = "0.0.3"
 	// Default Gitea Admin user
-	Gitea_Admin_User = "gitea_admin"
+	GiteaAdminUser = "gitea_admin"
 	// Gitea Admin Secrets name
-	Gitea_Admin_Secret_Name = "gitea-admin-secret"
+	GiteaAdminSecretName = "gitea-admin-secret"
 	// GiteaServer default name
-	GiteaServer_Default_Name = "vp-gitea-instance"
+	GiteaServerDefaultName = "vp-gitea-instance"
 )
 
 // Default constants
