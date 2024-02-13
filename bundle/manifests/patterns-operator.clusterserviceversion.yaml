@@ -6,6 +6,21 @@ metadata:
       [
         {
           "apiVersion": "gitops.hybrid-cloud-patterns.io/v1alpha1",
+          "kind": "GiteaServer",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "patterns-operator",
+              "app.kubernetes.io/instance": "giteaserver-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "giteaserver",
+              "app.kubernetes.io/part-of": "patterns-operator"
+            },
+            "name": "giteaserver-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "gitops.hybrid-cloud-patterns.io/v1alpha1",
           "kind": "Pattern",
           "metadata": {
             "name": "pattern-sample"
@@ -23,7 +38,7 @@ metadata:
     capabilities: Basic Install
     categories: OpenShift Optional
     containerImage: quay.io/hybridcloudpatterns/patterns-operator:0.0.42
-    createdAt: 2024-02-07 16:56:29
+    createdAt: 2024-02-13 16:47:26
     description: An operator to deploy and manage architecture patterns from https://validatedpatterns.io
     operators.operatorframework.io/builder: operator-sdk-v1.30.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
@@ -35,6 +50,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - kind: GiteaServer
+      name: giteaservers.gitops.hybrid-cloud-patterns.io
+      version: v1alpha1
     - description: Pattern is the Schema for the patterns API
       displayName: Pattern
       kind: Pattern
