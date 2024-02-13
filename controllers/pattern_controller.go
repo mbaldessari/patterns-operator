@@ -181,14 +181,14 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		// Let's get the GiteaServer route
-		giteaRouteURL, err := getRoute(r.Client, "gitea-route", GiteaNamespace)
-		if err != nil {
-			return r.actionPerformed(instance, "GiteaServer route not ready", err)
+		giteaRouteURL, routeErr := getRoute(r.Client, "gitea-route", GiteaNamespace)
+		if routeErr != nil {
+			return r.actionPerformed(instance, "GiteaServer route not ready", routeErr)
 		}
 		// Extract the repository name from the original target repo
-		upstreamRepoName, err := extractRepositoryName(instance.Spec.GitConfig.TargetRepo)
-		if err != nil {
-			return r.actionPerformed(instance, "Target Repo URL", err)
+		upstreamRepoName, repoErr := extractRepositoryName(instance.Spec.GitConfig.TargetRepo)
+		if repoErr != nil {
+			return r.actionPerformed(instance, "Target Repo URL", repoErr)
 		}
 
 		// Construct the Gitea URL
@@ -206,9 +206,9 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
 			// Get the gitea_admin secret
 			// oc get secret gitea-admin-secret -o yaml
-			secret, err := getSecret(r.Client, GiteaAdminSecretName, GiteaNamespace)
-			if err != nil {
-				return r.actionPerformed(instance, "Gitea Admin Secret", err)
+			secret, secretErr := getSecret(r.Client, GiteaAdminSecretName, GiteaNamespace)
+			if secretErr != nil {
+				return r.actionPerformed(instance, "Gitea Admin Secret", secretErr)
 			}
 
 			// Let's attempt to migrate the repo to Gitea

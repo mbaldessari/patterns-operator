@@ -197,8 +197,8 @@ func InstallChart(releaseName, repoName, chartName, version string, args map[str
 					RepositoryConfig: settings.RepositoryConfig,
 					RepositoryCache:  settings.RepositoryCache,
 				}
-				if err := man.Update(); err != nil {
-					return false, err
+				if updateErr := man.Update(); updateErr != nil {
+					return false, updateErr
 				}
 			} else {
 				return false, err
@@ -308,7 +308,7 @@ func isChartInstallable(ch *chart.Chart) (bool, error) {
 }
 
 //nolint:gofmt
-func debugf(format string, v ...interface{}) {
+func debugf(format string, v ...any) {
 	format = fmt.Sprintf("[debug] %s\n", format)
 	log.Output(2, fmt.Sprintf(format, v...)) //nolint:errcheck
 }

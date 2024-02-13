@@ -67,7 +67,7 @@ const (
 	// Default Gitea Admin user
 	GiteaAdminUser = "gitea_admin"
 	// Gitea Admin Secrets name
-	GiteaAdminSecretName = "gitea-admin-secret"
+	GiteaAdminSecretName = "gitea-admin-secret" //nolint:gosec
 	// GiteaServer default name
 	GiteaServerDefaultName = "vp-gitea-instance"
 )
