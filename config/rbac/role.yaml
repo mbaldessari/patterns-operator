@@ -60,6 +60,44 @@ rules:
   - get
   - list
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gitops.hybrid-cloud-patterns.io
+  resources:
+  - giteaservers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gitops.hybrid-cloud-patterns.io
+  resources:
+  - giteaservers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - gitops.hybrid-cloud-patterns.io
+  resources:
+  - giteaservers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - gitops.hybrid-cloud-patterns.io
   resources:
   - patterns
@@ -183,18 +221,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - create
@@ -204,32 +230,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - gitops.hybrid-cloud-patterns.io
-  resources:
-  - giteaservers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - gitops.hybrid-cloud-patterns.io
-  resources:
-  - giteaservers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - gitops.hybrid-cloud-patterns.io
-  resources:
-  - giteaservers/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - route.openshift.io
   resources:
