@@ -17,10 +17,15 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"code.gitea.io/sdk/gitea"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 )
 
 // Function that creates a mirror repo in Gitea
@@ -64,4 +69,18 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 	}
 
 	return true, repository.HTMLURL, nil
+}
+
+func createGiteaInstance(c client.Client) error {
+	giteaServerInstance := &api.GiteaServer{
+		ObjectMeta: metav1.ObjectMeta{Name: GiteaServerDefaultName, Namespace: GiteaNamespace},
+		Spec: api.GiteaServerSpec{
+			HelmChartUrl:     GiteaHelmRepoUrl,
+			HelmRepoName:     GiteaRepoName,
+			HelmChartName:    GiteaChartName,
+			HelmChartVersion: GiteaDefaultChartVersion,
+			HelmReleaseName:  GiteaReleaseName,
+		},
+	}
+	return c.Create(context.Background(), giteaServerInstance)
 }
