@@ -37,7 +37,7 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 	repoName, _ := extractRepositoryName(upstreamURL)
 
 	// Check to see if the repo already exists
-	repository, response, _ := giteaclient.GetRepo(Gitea_Admin_User, repoName)
+	repository, response, _ := giteaclient.GetRepo(GiteaAdminUser, repoName)
 
 	// Repo has been already migrated
 	if response.Response.StatusCode == http.StatusOK {
