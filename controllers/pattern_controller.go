@@ -168,17 +168,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return r.actionPerformed(instance, "Target Repo URL", repoErr)
 		}
 
-		// Construct the Gitea URL
-		// HACK: The Gitea instance route listens on http and needs to be https
-		// Replace https with http for now
-		giteaRouteURL = strings.Replace(giteaRouteURL, "https:", "http:", 1)
-
-		// We use the gitea_admin user
-		giteaRepoURL := giteaRouteURL
-		giteaRepoURL += "/"
-		giteaRepoURL += GiteaAdminUser
-		giteaRepoURL += "/"
-		giteaRepoURL += upstreamRepoName
+		giteaRepoURL := fmt.Sprintf("%s/%s/%s", giteaRouteURL, GiteaAdminUser, upstreamRepoName)
 
 		if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
 			// Get the gitea_admin secret
