@@ -24,7 +24,7 @@ import (
 )
 
 // Function that creates a mirror repo in Gitea
-func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (bool, string, error) {
+func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
 
 	// We have to get the gitea client using the username and password provided
@@ -64,19 +64,4 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 	}
 
 	return true, repository.HTMLURL, nil
-}
-
-func changeAdminPassword(client *gitea.Client, password string) (bool, error) {
-	option := gitea.EditUserOption{
-		LoginName: "gitea_admin",
-		Password:  password,
-	}
-
-	response, err := client.AdminEditUser("gitea_admin", option)
-
-	if err != nil {
-		return false, err
-	}
-	fmt.Println(response)
-	return true, nil
 }
