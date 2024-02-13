@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"code.gitea.io/sdk/gitea"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -69,6 +70,24 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 	}
 
 	return true, repository.HTMLURL, nil
+}
+
+func hasGiteaInstance(c client.Client) (exists bool, err error) {
+	// First let's see if there's a GiteaServer instance
+	// We list all the instances of a GiteaServer
+	// We don't care what the name of the instance is. If there's one present
+	// we assume that the Gitea Server instance is operational.
+	listOpts := client.ListOptions{
+		Namespace: GiteaNamespace,
+	}
+	giteaServerInstanceList := &api.GiteaServerList{}
+	err = c.List(context.Background(), giteaServerInstanceList, &listOpts)
+	if err != nil && kerrors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil && !kerrors.IsNotFound(err) {
+		return false, err
+	}
+	return true, nil
 }
 
 func createGiteaInstance(c client.Client) error {

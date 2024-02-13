@@ -147,25 +147,14 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
 	if *instance.Spec.GitConfig.EnableGitea {
-		// First let's see if there's a GiteaServer instance
-		// We list all the instances of a GiteaServer
-		// We don't care what the name of the instance is. If there's one present
-		// we assume that the Gitea Server instance is operational.
-		listOpts := client.ListOptions{
-			Namespace: GiteaNamespace,
-		}
-		giteaServerInstanceList := &api.GiteaServerList{}
-		err = r.Client.List(context.Background(), giteaServerInstanceList, &listOpts)
-
-		// Check to see if there's an error
+		hasGitea, hasGiteaErr := hasGiteaInstance(r.Client)
 		if err != nil {
-			if kerrors.IsNotFound(err) {
-				if err = createGiteaInstance(r.Client); err != nil {
-					return r.actionPerformed(instance, "create GiteaServer Instance", err)
-				}
+			return r.actionPerformed(instance, "error while checking for gitea instance existence", hasGiteaErr)
+		}
+		if !hasGitea {
+			if err = createGiteaInstance(r.Client); err != nil {
+				return r.actionPerformed(instance, "create GiteaServer Instance", err)
 			}
-			// Something else happened
-			return r.actionPerformed(instance, "list GiteaServer Instances", err)
 		}
 
 		// Let's get the GiteaServer route
