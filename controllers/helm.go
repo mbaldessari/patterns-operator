@@ -47,6 +47,8 @@ var settings *cli.EnvSettings
 
 func Init() {
 	settings = cli.New()
+	settings.RepositoryCache = fmt.Sprintf("%s/repositories.yaml", "/tmp/helm-repo")
+	settings.RepositoryConfig = fmt.Sprintf("%s/repository", "/tmp/helm-repo")
 }
 
 // RepoAdd adds repo with given name and url
