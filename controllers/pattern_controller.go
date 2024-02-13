@@ -159,19 +159,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Check to see if there's an error
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				// Create the GiteaServer instance if not found so that the GiteaServer controller
-				// deploys the Gitea instance
-				giteaServerInstance := &api.GiteaServer{
-					ObjectMeta: metav1.ObjectMeta{Name: GiteaServerDefaultName, Namespace: instance.Namespace},
-					Spec: api.GiteaServerSpec{
-						HelmChartUrl:     GiteaHelmRepoUrl,
-						HelmRepoName:     GiteaRepoName,
-						HelmChartName:    GiteaChartName,
-						HelmChartVersion: GiteaDefaultChartVersion,
-						HelmReleaseName:  GiteaReleaseName,
-					},
-				}
-				if err = r.Client.Create(context.Background(), giteaServerInstance); err != nil {
+				if err = createGiteaInstance(r.Client); err != nil {
 					return r.actionPerformed(instance, "create GiteaServer Instance", err)
 				}
 			}
