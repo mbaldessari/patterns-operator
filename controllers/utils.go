@@ -26,6 +26,9 @@ import (
 	"path"
 	"strings"
 
+	// Added to support generatePassword
+	"crypto/rand"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-errors/errors"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
