@@ -47,19 +47,19 @@ type GiteaServerReconciler struct {
 }
 
 // RBAC rules for the Gitea controller
-//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=giteaservers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=giteaservers/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=giteaservers/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=persistentvolume,verbs=watch;list;get;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=watch;list;get;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims/status,verbs=watch;list;get;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=services,verbs=*
-//+kubebuilder:rbac:groups="route.openshift.io",resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=deployments;replicasets;daemonsets;statefulsets,verbs=*
-//+kubebuilder:rbac:groups=apps.openshift.io,resources=deploymentconfigs,verbs=*
-//+kubebuilder:rbac:groups=apps,resources=deployments/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=list;watch;delete;update;get;create;patch
-//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,namespace=vp-gitea,resources=giteaservers,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,namespace=vp-gitea,resources=giteaservers/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,namespace=vp-gitea,resources=giteaservers/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",namespace=vp-gitea,resources=persistentvolume,verbs=watch;list;get;create;update;patch;delete
+//+kubebuilder:rbac:groups="",namespace=vp-gitea,resources=persistentvolumeclaims,verbs=watch;list;get;create;update;patch;delete
+//+kubebuilder:rbac:groups="",namespace=vp-gitea,resources=persistentvolumeclaims/status,verbs=watch;list;get;create;update;patch;delete
+//+kubebuilder:rbac:groups="",namespace=vp-gitea,resources=services,verbs=*
+//+kubebuilder:rbac:groups="route.openshift.io",namespace=vp-gitea,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,namespace=vp-gitea,resources=deployments;replicasets;daemonsets;statefulsets,verbs=*
+//+kubebuilder:rbac:groups=apps.openshift.io,namespace=vp-gitea,resources=deploymentconfigs,verbs=*
+//+kubebuilder:rbac:groups=apps,namespace=vp-gitea,resources=deployments/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,namespace=vp-gitea,resources=namespaces,verbs=list;watch;delete;update;get;create;patch
+//+kubebuilder:rbac:groups=core,namespace=vp-gitea,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
