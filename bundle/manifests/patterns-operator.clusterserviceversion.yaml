@@ -6,6 +6,21 @@ metadata:
       [
         {
           "apiVersion": "gitops.hybrid-cloud-patterns.io/v1alpha1",
+          "kind": "GiteaServer",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "patterns-operator",
+              "app.kubernetes.io/instance": "giteaserver-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "giteaserver",
+              "app.kubernetes.io/part-of": "patterns-operator"
+            },
+            "name": "giteaserver-sample"
+          },
+          "spec": null
+        },
+        {
+          "apiVersion": "gitops.hybrid-cloud-patterns.io/v1alpha1",
           "kind": "Pattern",
           "metadata": {
             "name": "pattern-sample"
@@ -45,6 +60,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - kind: GiteaServer
+      name: giteaservers.gitops.hybrid-cloud-patterns.io
+      version: v1alpha1
     - description: Pattern is the Schema for the patterns API
       displayName: Pattern
       kind: Pattern
