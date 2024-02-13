@@ -172,7 +172,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
 			// Get the gitea_admin secret
 			// oc get secret gitea-admin-secret -o yaml
-			secret, secretErr := getSecret(r.Client, GiteaAdminSecretName, GiteaNamespace)
+			secret, secretErr := getSecret(r.fullClient, GiteaAdminSecretName, GiteaNamespace)
 			if secretErr != nil {
 				return r.actionPerformed(instance, "Gitea Admin Secret", secretErr)
 			}

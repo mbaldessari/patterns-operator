@@ -134,9 +134,8 @@ func getRoute(controllerClient client.Client, name, ns string) (string, error) {
 }
 
 // Get a Secret instance
-func getSecret(controllerClient client.Client, name, ns string) (*v1.Secret, error) {
-	secret := &v1.Secret{}
-	err := controllerClient.Get(context.Background(), types.NamespacedName{Name: name, Namespace: ns}, secret)
+func getSecret(fullClient kubernetes.Interface, name, ns string) (*v1.Secret, error) {
+	secret, err := fullClient.CoreV1().Secrets(ns).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
