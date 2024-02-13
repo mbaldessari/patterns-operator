@@ -145,7 +145,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
-	if *instance.Spec.GitConfig.Enabled {
+	if *instance.Spec.GitConfig.EnableGitea {
 		// First let's see if there's a GiteaServer instance
 		// We list all the instances of a GiteaServer
 		// We don't care what the name of the instance is. If there's one present
