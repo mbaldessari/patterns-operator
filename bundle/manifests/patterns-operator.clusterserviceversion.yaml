@@ -225,15 +225,23 @@ spec:
           resources:
           - namespaces
           verbs:
+          - create
+          - delete
           - get
           - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - ""
           resources:
           - secrets
           verbs:
           - create
+          - delete
           - get
+          - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -268,18 +276,6 @@ spec:
           verbs:
           - get
           - list
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
         - apiGroups:
           - gitops.hybrid-cloud-patterns.io
           resources:

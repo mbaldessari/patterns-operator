@@ -58,8 +58,10 @@ type GiteaServerReconciler struct {
 //+kubebuilder:rbac:groups=apps,namespace=vp-gitea,resources=deployments;replicasets;daemonsets;statefulsets,verbs=*
 //+kubebuilder:rbac:groups=apps.openshift.io,namespace=vp-gitea,resources=deploymentconfigs,verbs=*
 //+kubebuilder:rbac:groups=apps,namespace=vp-gitea,resources=deployments/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=list;watch;delete;update;get;create;patch
-//+kubebuilder:rbac:groups=core,namespace=vp-gitea,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;watch;delete;update;get;create;patch
+//FIXME(bandini): we should be able to limit the following to the vp-gitea namespace, but for some reason helm.go when checking if
+//a chart is deployed fails miserably
+//+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
