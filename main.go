@@ -43,7 +43,6 @@ import (
 	gitopsv1alpha1 "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 	"github.com/hybrid-cloud-patterns/patterns-operator/controllers"
 	"github.com/hybrid-cloud-patterns/patterns-operator/version"
-	routev1 "github.com/openshift/api/route/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -122,11 +121,6 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
-	// Setup Scheme for OpenShift Routes if available.
-	if err := routev1.Install(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "")
 		os.Exit(1)
 	}
 
