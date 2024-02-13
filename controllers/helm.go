@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
