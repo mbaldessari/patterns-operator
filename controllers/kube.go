@@ -122,6 +122,9 @@ func referSameObject(a, b *metav1.OwnerReference) bool {
 
 func getRoute(config *rest.Config, routeName, namespace string) (string, error) {
 	clientSet, err := versioned.NewForConfig(config)
+	if err != nil {
+		return "", err
+	}
 	routesClient := clientSet.RouteV1().Routes(namespace)
 	route, err := routesClient.Get(context.Background(), routeName, metav1.GetOptions{})
 	if err != nil {

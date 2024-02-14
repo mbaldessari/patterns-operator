@@ -34,10 +34,10 @@ import (
 func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
 
-	//FIXME(bandini): this is just a temporary thing until we figure out why gitea ignores the system CA in the container
+	// FIXME(bandini): this is just a temporary thing until we figure out why gitea ignores the system CA in the container
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint: gosec
 		},
 	}
 

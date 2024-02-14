@@ -82,8 +82,8 @@ func RepoAdd(name, url string) (bool, error) {
 	}
 
 	var f repo.File
-	if err := yaml.Unmarshal(b, &f); err != nil {
-		return false, err
+	if errYaml := yaml.Unmarshal(b, &f); errYaml != nil {
+		return false, errYaml
 	}
 
 	if f.Has(name) {
