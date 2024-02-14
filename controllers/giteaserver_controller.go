@@ -292,11 +292,11 @@ func (r *GiteaServerReconciler) updateGiteaServerCRDetails(input *gitopsv1alpha1
 	}
 
 	// Retrieve the route for the gitea server and add it to the Status spec
-	url, err := getRoute(r.Client, "gitea-route", GiteaNamespace)
-	if err == nil && input.Status.Route != url {
-		input.Status.Route = url
-		fUpdateCR = true
-	}
+	//url, err := getRoute(r.config, "gitea-route", GiteaNamespace)
+	//if err == nil && input.Status.Route != url {
+	//	input.Status.Route = url
+	//	fUpdateCR = true
+	//}
 
 	if fUpdateCR {
 		// Now let's update the CR with the status data.
