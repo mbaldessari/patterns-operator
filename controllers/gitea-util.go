@@ -33,11 +33,14 @@ import (
 // Function that creates a mirror repo in Gitea
 func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
-
-	// FIXME(bandini): this is just a temporary thing until we figure out why gitea ignores the system CA in the container
+	// Load system CAs + OCP internal CAs
+	rootCAs := getSystemAndOpenShiftCAs()
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint: gosec
+			TLSClientConfig: &tls.Config{
+				RootCAs:    rootCAs,
+				MinVersion: tls.VersionTLS12,
+			},
 		},
 	}
 

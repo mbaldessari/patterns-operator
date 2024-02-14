@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 
 	// Added to support generatePassword
 	"crypto/rand"
+	"crypto/x509"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-errors/errors"
@@ -201,4 +203,29 @@ func GenerateRandomPassword(length int) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(rndbytes), nil
+}
+
+func getSystemAndOpenShiftCAs() *x509.CertPool {
+	rootCAs, err := x509.SystemCertPool()
+	if err != nil || rootCAs == nil {
+		// Fallback to an empty pool if there's an error or if system CA pool is not available
+		rootCAs = x509.NewCertPool()
+	} else if err != nil {
+		fmt.Printf("Failed to get system certs: %v\n", rootCAs)
+	}
+
+	caCerts := []string{
+		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		"/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt",
+	}
+	for _, cert := range caCerts {
+		caCert, err := os.ReadFile(cert)
+		if err != nil {
+			fmt.Printf("Failed to read CA certificate %s: %v\n", cert, err)
+		}
+		if ok := rootCAs.AppendCertsFromPEM(caCert); !ok {
+			fmt.Printf("Failed to append CA certificate: %v\n", ok)
+		}
+	}
+	return rootCAs
 }
