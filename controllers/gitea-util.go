@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -33,8 +34,14 @@ import (
 func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
 
-	// We have to get the gitea client using the username and password provided
-	giteaclient, err := gitea.NewClient(giteaServerRoute, option)
+	//FIXME(bandini): this is just a temporary thing until we figure out why gitea ignores the system CA in the container
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	giteaClient, err := gitea.NewClient(giteaServerRoute, option, gitea.SetHTTPClient(httpClient))
 	if err != nil {
 		return false, "", err
 	}
@@ -43,7 +50,7 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 	repoName, _ := extractRepositoryName(upstreamURL)
 
 	// Check to see if the repo already exists
-	repository, response, _ := giteaclient.GetRepo(GiteaAdminUser, repoName)
+	repository, response, _ := giteaClient.GetRepo(GiteaAdminUser, repoName)
 
 	// Repo has been already migrated
 	if response.Response.StatusCode == http.StatusOK {
@@ -56,7 +63,7 @@ func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) 
 
 	description := fmt.Sprintf(descriptionFormat, repoName)
 
-	repository, _, err = giteaclient.MigrateRepo(gitea.MigrateRepoOption{
+	repository, _, err = giteaClient.MigrateRepo(gitea.MigrateRepoOption{
 		CloneAddr: upstreamURL,
 		RepoOwner: username,
 		RepoName:  repoName,
