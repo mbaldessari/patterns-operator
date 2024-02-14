@@ -144,54 +144,9 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
 	if *instance.Spec.GitConfig.EnableGitea {
-		hasGitea, hasGiteaErr := hasGiteaInstance(r.Client)
-		if err != nil {
-			return r.actionPerformed(instance, "error while checking for gitea instance existence", hasGiteaErr)
-		}
-		if !hasGitea {
-			if err = createGiteaInstance(r.Client); err != nil {
-				return r.actionPerformed(instance, "create GiteaServer Instance", err)
-			}
-		}
-
-		// Let's get the GiteaServer route
-		giteaRouteURL, routeErr := getRoute(r.config, "gitea-route", GiteaNamespace)
-		if routeErr != nil {
-			return r.actionPerformed(instance, "GiteaServer route not ready", routeErr)
-		}
-		// Extract the repository name from the original target repo
-		upstreamRepoName, repoErr := extractRepositoryName(instance.Spec.GitConfig.TargetRepo)
-		if repoErr != nil {
-			return r.actionPerformed(instance, "Target Repo URL", repoErr)
-		}
-
-		giteaRepoURL := fmt.Sprintf("%s/%s/%s", giteaRouteURL, GiteaAdminUser, upstreamRepoName)
-
-		if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
-			// Get the gitea_admin secret
-			// oc get secret gitea-admin-secret -o yaml
-			secret, secretErr := getSecret(r.fullClient, GiteaAdminSecretName, GiteaNamespace)
-			if secretErr != nil {
-				return r.actionPerformed(instance, "Gitea Admin Secret", secretErr)
-			}
-
-			// Let's attempt to migrate the repo to Gitea
-			_, _, err = migrateGiteaRepo(string(secret.Data["admin_username"]),
-				string(secret.Data["admin_password"]),
-				instance.Spec.GitConfig.TargetRepo,
-				giteaRouteURL)
-			if err != nil {
-				return r.actionPerformed(instance, "GiteaServer Migrate Repository", err)
-			}
-
-			// Migrate Repo has been done.
-			// Replace the Target Repo with new Gitea Repo URL
-			// and update the pattern CR
-			instance.Spec.GitConfig.TargetRepo = giteaRepoURL
-			err = r.Client.Update(context.Background(), instance)
-			if err != nil {
-				return r.actionPerformed(instance, "Update CR Target Repo", err)
-			}
+		ret, giteaErr := r.giteaServerSetup(instance)
+		if giteaErr != nil {
+			return r.actionPerformed(instance, ret, giteaErr)
 		}
 	}
 	// -- Fill in defaults (changes made to a copy and not persisted)
@@ -343,6 +298,59 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return result, nil
+}
+
+func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, error) {
+	hasGitea, hasGiteaErr := hasGiteaInstance(r.Client)
+	if hasGiteaErr != nil {
+		return "error while checking for gitea instance existence", hasGiteaErr
+	}
+	if !hasGitea {
+		if err := createGiteaInstance(r.Client); err != nil {
+			return "create GiteaServer Instance", err
+		}
+	}
+
+	// Let's get the GiteaServer route
+	giteaRouteURL, routeErr := getRoute(r.config, "gitea-route", GiteaNamespace)
+	if routeErr != nil {
+		return "GiteaServer route not ready", routeErr
+	}
+	// Extract the repository name from the original target repo
+	upstreamRepoName, repoErr := extractRepositoryName(instance.Spec.GitConfig.TargetRepo)
+	if repoErr != nil {
+		return "Target Repo URL", repoErr
+	}
+
+	giteaRepoURL := fmt.Sprintf("%s/%s/%s", giteaRouteURL, GiteaAdminUser, upstreamRepoName)
+
+	if instance.Spec.GitConfig.TargetRepo != giteaRepoURL {
+		// Get the gitea_admin secret
+		// oc get secret gitea-admin-secret -o yaml
+		secret, secretErr := getSecret(r.fullClient, GiteaAdminSecretName, GiteaNamespace)
+		if secretErr != nil {
+			return "Gitea Admin Secret", secretErr
+		}
+
+		// Let's attempt to migrate the repo to Gitea
+		_, _, err := migrateGiteaRepo(string(secret.Data["username"]),
+			string(secret.Data["password"]),
+			instance.Spec.GitConfig.TargetRepo,
+			giteaRouteURL)
+		if err != nil {
+			return "GiteaServer Migrate Repository", err
+		}
+
+		// Migrate Repo has been done.
+		// Replace the Target Repo with new Gitea Repo URL
+		// and update the pattern CR
+		instance.Spec.GitConfig.TargetRepo = giteaRepoURL
+		err = r.Client.Update(context.Background(), instance)
+		if err != nil {
+			return "Update CR Target Repo", err
+		}
+	}
+	return "", nil
 }
 
 func (r *PatternReconciler) preValidation(input *api.Pattern) error {
