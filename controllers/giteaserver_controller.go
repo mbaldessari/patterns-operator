@@ -159,27 +159,31 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// the values.yaml file gitea.admin.password
 
 		// Generate a random password for the gitea_admin user
-		var gitea_admin_password string
-		gitea_admin_password, err = GenerateRandomPassword(DefaultPasswordLen)
+		var giteaAdminPassword string
+		giteaAdminPassword, err = GenerateRandomPassword(DefaultPasswordLen)
 		if err != nil {
 			r.logger.Info("Error Generating gitea_admin password:", "info", err)
+		}
+
+		// create the gitea-admin-secret for gitea's admin user/pass combo
+		secretData := map[string][]byte{
+			"username": []byte(GiteaAdminUser),
+			"password": []byte(giteaAdminPassword),
+		}
+		giteaAdminSecret := newSecret(GiteaAdminSecretName, GiteaNamespace, false, secretData)
+		err = r.Client.Create(context.Background(), giteaAdminSecret)
+		if err != nil {
+			r.logger.Info("Could not create Gitea Admin Secret")
 		}
 
 		// Create the overrides
 		// They should be comma separated
 		// e.g. user=me,password=123, etc etc
-		// Since the gitea-chart has gitea as a subchart
-		// you need to have the subschart name first
-		// e.g. gitea.gitea.admin.password="password"
+		// In this case we point gitea to use the newly created existing secret
 
-		gitea_overrides := "gitea.gitea.admin.password="
-		gitea_overrides += gitea_admin_password
-		gitea_overrides += ","
+		gitea_overrides := fmt.Sprintf("gitea.admin.existingSecret=%s,", GiteaAdminSecretName)
 
 		// Install charts
-		// TODO: The args are overrides for the chart
-		// The chart currently has a default password that we
-		// need to remove from values.yaml.
 		args := map[string]string{
 			"set": gitea_overrides,
 		}
@@ -191,23 +195,6 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			instance.Spec.HelmChartVersion, args)
 		if err != nil {
 			return r.actionPerformed(instance, "install helm chart", err)
-		}
-
-		// Let's create a secret for the gitea_admin user in OpenShift
-		// in the gitea namespace
-		gitea_admin_secret := corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitea-admin-secret",
-				Namespace: GiteaNamespace,
-			},
-			Data: map[string][]byte{
-				"admin_username": []byte(GiteaAdminUser),
-				"admin_password": []byte(gitea_admin_password),
-			},
-		}
-		err = r.Client.Create(context.Background(), &gitea_admin_secret)
-		if err != nil {
-			r.logger.Info("Could not create Gitea Admin Secret")
 		}
 	} else if fDeployed && err != nil {
 		return r.actionPerformed(instance, "GiteaServer deployment", err)
