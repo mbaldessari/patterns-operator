@@ -141,7 +141,7 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	os.Setenv("HELM_NAMESPACE", GiteaNamespace)
 	// Initialize Helm settings
-	Init()
+	HelmInit()
 
 	// See if chart has been deployed.
 	var fDeployed bool
