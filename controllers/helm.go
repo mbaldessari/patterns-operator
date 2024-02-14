@@ -258,7 +258,6 @@ func isChartDeployed(name, namespace string) (bool, error) {
 
 	status := action.NewList(actionConfig)
 	status.AllNamespaces = false
-	// We are only interested in deployed charts
 	status.Deployed = true
 	releases, err := status.Run()
 
