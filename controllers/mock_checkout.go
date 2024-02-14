@@ -38,15 +38,15 @@ func (m *MockGitOperations) EXPECT() *MockGitOperationsMockRecorder {
 }
 
 // CloneAndCheckout mocks base method.
-func (m *MockGitOperations) CloneAndCheckout(repoURL, revision, localFolder string, gitAuth map[string][]byte) error {
+func (m *MockGitOperations) CloneAndCheckout(repoURL, revision, localFolder string, insecure bool, gitAuth map[string][]byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloneAndCheckout", repoURL, revision, localFolder, gitAuth)
+	ret := m.ctrl.Call(m, "CloneAndCheckout", repoURL, revision, localFolder, insecure, gitAuth)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CloneAndCheckout indicates an expected call of CloneAndCheckout.
-func (mr *MockGitOperationsMockRecorder) CloneAndCheckout(repoURL, revision, localFolder, gitAuth any) *gomock.Call {
+func (mr *MockGitOperationsMockRecorder) CloneAndCheckout(repoURL, revision, localFolder, insecure, gitAuth any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneAndCheckout", reflect.TypeOf((*MockGitOperations)(nil).CloneAndCheckout), repoURL, revision, localFolder, gitAuth)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneAndCheckout", reflect.TypeOf((*MockGitOperations)(nil).CloneAndCheckout), repoURL, revision, localFolder, insecure, gitAuth)
 }

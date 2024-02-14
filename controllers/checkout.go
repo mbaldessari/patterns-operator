@@ -36,7 +36,7 @@ const (
 const VPTmpFolder = "vp"
 
 type GitOperations interface {
-	CloneAndCheckout(repoURL, revision, localFolder string, gitAuth map[string][]byte) error
+	CloneAndCheckout(repoURL, revision, localFolder string, insecure bool, gitAuth map[string][]byte) error
 }
 
 type GitOperationsImpl struct{}
@@ -109,7 +109,7 @@ func getLocalGitPath(repoURL string) (string, error) {
 	return root, nil
 }
 
-func (g *GitOperationsImpl) CloneAndCheckout(repoURL, revision, localFolder string, gitAuth map[string][]byte) error {
+func (g *GitOperationsImpl) CloneAndCheckout(repoURL, revision, localFolder string, insecure bool, gitAuth map[string][]byte) error {
 	var client git.Client
 	var err error
 
@@ -117,7 +117,9 @@ func (g *GitOperationsImpl) CloneAndCheckout(repoURL, revision, localFolder stri
 	if err != nil {
 		return fmt.Errorf("Could not get Authentication info: %w", err)
 	}
-	client, err = git.NewClientExt(repoURL, localFolder, creds, false, false, "")
+	// FIXME(bandini): Ideally we'd be able to just add the local openshift CAs, but the argo pkg
+	// seems a bit problematic in that regard (https://www.github.com/argoproj/argo-cd/issues/7572)
+	client, err = git.NewClientExt(repoURL, localFolder, creds, insecure, false, "")
 	if err != nil {
 		return fmt.Errorf("failed to create Git client: %w", err)
 	}
@@ -138,6 +140,6 @@ func (g *GitOperationsImpl) CloneAndCheckout(repoURL, revision, localFolder stri
 	return nil
 }
 
-func GetGit(gitOps GitOperations, repoURL, revision, localFolder string, gitAuth map[string][]byte) error {
-	return gitOps.CloneAndCheckout(repoURL, revision, localFolder, gitAuth)
+func GetGit(gitOps GitOperations, repoURL, revision, localFolder string, insecure bool, gitAuth map[string][]byte) error {
+	return gitOps.CloneAndCheckout(repoURL, revision, localFolder, insecure, gitAuth)
 }

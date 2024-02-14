@@ -739,7 +739,16 @@ func (r *PatternReconciler) getLocalGit(p *api.Pattern) (string, error) {
 			return "obtaining git auth info from secret", err
 		}
 	}
-	err = GetGit(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Spec.GitConfig.TargetRevision, p.Status.LocalCheckoutPath, gitAuthSecret)
+	// FIXME(bandini): Ideally we'd be able to just add the local openshift CAs, but the argo pkg
+	// seems a bit problematic in that regard (https://www.github.com/argoproj/argo-cd/issues/7572)
+	// so whenever we enable gitea we emanle the insecure property
+	var insecure bool
+	if p.Spec.GitConfig.EnableGitea != nil && *p.Spec.GitConfig.EnableGitea {
+		insecure = true
+	} else {
+		insecure = false
+	}
+	err = GetGit(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Spec.GitConfig.TargetRevision, p.Status.LocalCheckoutPath, insecure, gitAuthSecret)
 	if err != nil {
 		return "cloning pattern repo", err
 	}
