@@ -45,8 +45,6 @@ import (
 	olmclient "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 
-	//	olmapi "github.com/operator-framework/api/pkg/operators/v1alpha1"
-
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1"
 )
@@ -158,7 +156,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		// Let's get the GiteaServer route
-		giteaRouteURL, routeErr := getRoute(r.Client, "gitea-route", GiteaNamespace)
+		giteaRouteURL, routeErr := getRoute(r.config, "gitea-route", GiteaNamespace)
 		if routeErr != nil {
 			return r.actionPerformed(instance, "GiteaServer route not ready", routeErr)
 		}

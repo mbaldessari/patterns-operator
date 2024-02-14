@@ -20,13 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	routev1 "github.com/openshift/api/route/v1"
+	"github.com/openshift/client-go/route/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"gopkg.in/yaml.v3"
@@ -119,13 +120,11 @@ func referSameObject(a, b *metav1.OwnerReference) bool {
 	return aGV.Group == bGV.Group && a.Kind == b.Kind && a.Name == b.Name
 }
 
-func getRoute(controllerClient client.Client, name, ns string) (string, error) {
-	route := &routev1.Route{}
-	err := controllerClient.Get(context.Background(), types.NamespacedName{Name: name, Namespace: ns}, route)
+func getRoute(config *rest.Config, routeName, namespace string) (string, error) {
+	clientSet, err := versioned.NewForConfig(config)
+	routesClient := clientSet.RouteV1().Routes(namespace)
+	route, err := routesClient.Get(context.Background(), routeName, metav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return "", err
-		}
 		return "", err
 	}
 
