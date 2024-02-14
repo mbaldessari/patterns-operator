@@ -219,7 +219,6 @@ func InstallChart(releaseName, repoName, chartName, version string, args map[str
 	}
 
 	fmt.Println("Installed Helm Chart [", releaseInfo.Name, "] in Namespace [", releaseInfo.Namespace, "]")
-
 	return true, nil
 }
 
