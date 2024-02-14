@@ -679,14 +679,20 @@ func (r *PatternReconciler) authGitFromSecret(namespace, secret string) (map[str
 	return tokenSecret.Data, nil
 }
 
-func newSecret(name, namespace string, secret map[string][]byte) *corev1.Secret {
+func newSecret(name, namespace string, withargolabel bool, secret map[string][]byte) *corev1.Secret {
+	var labels map[string]string
+	if withargolabel {
+		labels = map[string]string{
+			"argocd.argoproj.io/secret-type": "repository",
+		}
+	} else {
+		labels = map[string]string{}
+	}
 	k8sSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
-			Labels: map[string]string{
-				"argocd.argoproj.io/secret-type": "repository",
-			},
+			Labels:    labels,
 		},
 		Data: secret,
 	}
@@ -698,7 +704,7 @@ func (r *PatternReconciler) copyAuthGitSecret(secretNamespace, secretName, destN
 	if err != nil {
 		return err
 	}
-	newSecretCopy := newSecret(destSecretName, destNamespace, sourceSecret)
+	newSecretCopy := newSecret(destSecretName, destNamespace, true, sourceSecret)
 	_, err = r.fullClient.CoreV1().Secrets(destNamespace).Get(context.TODO(), destSecretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
