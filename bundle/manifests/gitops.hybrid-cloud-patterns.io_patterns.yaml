@@ -89,7 +89,7 @@ spec:
                 type: object
               gitSpec:
                 properties:
-                  enabled:
+                  enableGitea:
                     default: false
                     description: (EXPERIMENTAL) Enable gitea support when deploying
                       the pattern

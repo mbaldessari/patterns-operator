@@ -91,7 +91,7 @@ type GitConfig struct {
 	// (EXPERIMENTAL) Enable gitea support when deploying the pattern
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	// +kubebuilder:default:=false
-	EnableGitea *bool `json:"enabled,omitempty"`
+	EnableGitea *bool `json:"enableGitea,omitempty"`
 
 	// Git repo containing the pattern to deploy. Must use https/http or, for ssh, git@server:foo/bar.git
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
