@@ -143,7 +143,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
-	if *instance.Spec.GitConfig.EnableGitea {
+	if instance.Spec.GitConfig.EnableGitea != nil && *instance.Spec.GitConfig.EnableGitea {
 		ret, giteaErr := r.giteaServerSetup(instance)
 		if giteaErr != nil {
 			return r.actionPerformed(instance, ret, giteaErr)
