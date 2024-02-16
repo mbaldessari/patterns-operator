@@ -27,10 +27,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	argoapp "github.com/argoproj-labs/argocd-operator/api/v1beta1"
 	argoapi "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argoclient "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 )
+
+func newArgoCD(p *api.Pattern) {
+	s := argoapp.ArgoCD{}
+	fmt.Printf("%v\n", s)
+}
 
 func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
 	parameters := []argoapi.HelmParameter{
