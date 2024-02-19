@@ -24,17 +24,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/dynamic"
+	kubeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"gopkg.in/yaml.v3"
 )
 
-func haveNamespace(controllerClient client.Client, name string) bool {
+func haveNamespace(controllerClient kubeclient.Client, name string) bool {
 	ns := &v1.Namespace{}
 	if err := controllerClient.Get(context.Background(), types.NamespacedName{Name: name}, ns); err == nil {
 		return true
 	}
 	return false
+}
+
+func haveClusterWideArgo(client dynamic.Interface, name, namespace string) bool {
+	gvr := schema.GroupVersionResource{Group: "argoproj.io", Version: "v1beta1", Resource: "argocds"}
+	_, err := client.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	return err == nil
 }
 
 func ownedBySame(expected, object metav1.Object) bool {

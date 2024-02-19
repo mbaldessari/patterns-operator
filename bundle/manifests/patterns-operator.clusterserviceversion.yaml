@@ -211,6 +211,17 @@ spec:
           - patch
           - update
         - apiGroups:
+          - argoproj.io
+          resources:
+          - argocds
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
           - config.openshift.io
           resources:
           - clusterversions

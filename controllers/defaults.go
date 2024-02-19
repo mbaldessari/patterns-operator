@@ -11,6 +11,8 @@ const (
 	SubscriptionNamespace = "openshift-operators"
 	// Default Application Namespace
 	ApplicationNamespace = "openshift-gitops"
+	// ClusterWide Argo Name
+	ClusterWideArgoName = "openshift-gitops"
 )
 
 // GitOps Subscription

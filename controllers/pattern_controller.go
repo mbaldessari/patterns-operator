@@ -79,6 +79,7 @@ type PatternReconciler struct {
 //+kubebuilder:rbac:groups=config.openshift.io,resources=ingresses,verbs=list;get
 //+kubebuilder:rbac:groups=config.openshift.io,resources=infrastructures,verbs=list;get
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;get
+//+kubebuilder:rbac:groups=argoproj.io,resources=argocds,verbs=list;get;create;update;patch;delete
 //+kubebuilder:rbac:groups=argoproj.io,resources=applications,verbs=list;get;create;update;patch;delete
 //+kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=list;get;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list
@@ -208,15 +209,20 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	} else {
 		logOnce("The gitops subscription is not owned by us, leaving untouched")
 	}
-
 	logOnce("subscription found")
 
 	// -- GitOps Namespace (created by the gitops operator)
 	if !haveNamespace(r.Client, ApplicationNamespace) {
 		return r.actionPerformed(qualifiedInstance, "check application namespace", fmt.Errorf("waiting for creation"))
 	}
-
 	logOnce("namespace found")
+
+	if !haveClusterWideArgo(r.dynamicClient, ClusterWideArgoName, ApplicationNamespace) {
+		argoErr := createArgoCD(r.Client, ClusterWideArgoName, ApplicationNamespace)
+		fmt.Printf("ARGO Creation error: %v\n", argoErr)
+		return r.actionPerformed(qualifiedInstance, "check clusterwide argo", fmt.Errorf("waiting for creation"))
+	}
+	logOnce("clusterwide argo found")
 	// Copy the bootstrap secret to the namespaced argo namespace
 	if qualifiedInstance.Spec.GitConfig.TokenSecret != "" {
 		if err = r.copyAuthGitSecret(qualifiedInstance.Spec.GitConfig.TokenSecretNamespace,

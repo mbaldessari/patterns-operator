@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	argoapp "github.com/argoproj-labs/argocd-operator/api/v1beta1"
@@ -35,18 +36,16 @@ import (
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 )
 
-func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
-	argoPolicy := `
-	g, system:cluster-admins, role:admin
-	g, cluster-admins, role:admin
-	`
+func newArgoCD(name, namespace string) *argoapp.ArgoCD {
+	argoPolicy := `g, system:cluster-admins, role:admin
+g, cluster-admins, role:admin`
+	defaultPolicy := ""
 	argoScopes := "[groups]"
 	s := argoapp.ArgoCD{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "example-argocd",
-			Namespace:   "argocd",
-			Finalizers:  []string{"argoproj.io/finalizer"},
-			Annotations: map[string]string{"argocd.argoproj.io/compare-options": "IgnoreExtraneous"},
+			Name:       name,
+			Namespace:  namespace,
+			Finalizers: []string{"argoproj.io/finalizer"},
 		},
 		Spec: argoapp.ArgoCDSpec{
 			ApplicationSet: &argoapp.ArgoCDApplicationSet{
@@ -69,6 +68,7 @@ func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
 					},
 				},
 			},
+
 			Controller: argoapp.ArgoCDApplicationControllerSpec{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -129,7 +129,7 @@ func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
 				},
 			},
 			RBAC: argoapp.ArgoCDRBACSpec{
-				DefaultPolicy: nil,
+				DefaultPolicy: &defaultPolicy,
 				Policy:        &argoPolicy,
 				Scopes:        &argoScopes,
 			},
@@ -157,15 +157,13 @@ func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
 					},
 				},
 			},
-			ResourceExclusions: `
-			- apiGroups:
-              - tekton.dev
-              clusters:
-              - '*'
-              kinds:
-              - TaskRun
-              - PipelineRun
-			`,
+			ResourceExclusions: `- apiGroups:
+  - tekton.dev
+  clusters:
+  - '*'
+  kinds:
+  - TaskRun
+  - PipelineRun`,
 			Server: argoapp.ArgoCDServerSpec{
 				Autoscale: argoapp.ArgoCDServerAutoscaleSpec{
 					Enabled: false,
@@ -204,7 +202,7 @@ func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
 							v1.ResourceMemory: resource.MustParse("256Mi"),
 						},
 						Requests: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("256m"),
+							v1.ResourceCPU:    resource.MustParse("250m"),
 							v1.ResourceMemory: resource.MustParse("128Mi"),
 						},
 					},
@@ -214,6 +212,12 @@ func newArgoCD(p *api.Pattern) *argoapp.ArgoCD {
 		},
 	}
 	return &s
+}
+
+func createArgoCD(c kubeclient.Client, name, namespace string) error {
+	argo := newArgoCD(name, namespace)
+	err := c.Create(context.Background(), argo)
+	return err
 }
 
 func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
