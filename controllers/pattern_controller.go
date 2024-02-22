@@ -27,7 +27,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -109,7 +108,6 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// r.logger.Error(err, fmt.Sprintf("[%s/%s] %s", p.Name, p.ObjectMeta.Namespace, reason))
 	// Or r.logger.Error(err, "message", "name", p.Name, "namespace", p.ObjectMeta.Namespace, "reason", reason))
 
-	// Fetch the NodeMaintenance instance
 	instance := &api.Pattern{}
 	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
 	if err != nil {
@@ -217,12 +215,24 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	logOnce("namespace found")
 
-	if !haveClusterWideArgo(r.dynamicClient, ClusterWideArgoName, ApplicationNamespace) {
-		argoErr := createArgoCD(r.Client, ClusterWideArgoName, ApplicationNamespace)
-		fmt.Printf("ARGO Creation error: %v\n", argoErr)
-		return r.actionPerformed(qualifiedInstance, "check clusterwide argo", fmt.Errorf("waiting for creation"))
+	// Create the trusted-bundle configmap inside openshift-gitops namespace
+	errCABundle := createTrustedBundleCM(r.fullClient)
+	if errCABundle != nil {
+		return r.actionPerformed(qualifiedInstance, "error while creating trustedbundle cm", errCABundle)
 	}
-	logOnce("clusterwide argo found")
+
+	targetArgoCD := newArgoCD(ClusterWideArgoName, ApplicationNamespace)
+	argoCD, _ := getArgoCD(r.dynamicClient, ClusterWideArgoName, ApplicationNamespace)
+	if argoCD == nil {
+		argoErr := createArgoCD(r.Client, ClusterWideArgoName, ApplicationNamespace)
+		return r.actionPerformed(qualifiedInstance, "create clusterwide argo", argoErr)
+	} else if ownedBySame(argoCD, targetArgoCD) {
+		logOnce("clusterwide argo found")
+		changed, errArgoUpdate := updateArgoCD(r.dynamicClient, targetArgoCD, argoCD)
+		if changed {
+			return r.actionPerformed(qualifiedInstance, "update clusterwide argocd", errArgoUpdate)
+		}
+	}
 	// Copy the bootstrap secret to the namespaced argo namespace
 	if qualifiedInstance.Spec.GitConfig.TokenSecret != "" {
 		if err = r.copyAuthGitSecret(qualifiedInstance.Spec.GitConfig.TokenSecretNamespace,
@@ -258,7 +268,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	} else {
 		// Someone manually removed the owner ref
-		return r.actionPerformed(qualifiedInstance, "create application", fmt.Errorf("We no longer own Application %q", targetApp.Name))
+		return r.actionPerformed(qualifiedInstance, "create application", fmt.Errorf("we no longer own Application %q", targetApp.Name))
 	}
 
 	// Copy the bootstrap secret to the namespaced argo namespace
@@ -458,7 +468,7 @@ func (r *PatternReconciler) finalizeObject(instance *api.Pattern) error {
 			}
 		}
 		if changed, _ := updateApplication(r.argoClient, targetApp, app); changed {
-			return fmt.Errorf("updated application %q for removal\n", app.Name)
+			return fmt.Errorf("updated application %q for removal", app.Name)
 		}
 
 		if haveACMHub(r) {
@@ -473,7 +483,7 @@ func (r *PatternReconciler) finalizeObject(instance *api.Pattern) error {
 		if err := removeApplication(r.argoClient, app.Name); err != nil {
 			return err
 		}
-		return fmt.Errorf("waiting for application %q to be removed\n", app.Name)
+		return fmt.Errorf("waiting for application %q to be removed", app.Name)
 	}
 
 	return nil
@@ -635,26 +645,12 @@ func (r *PatternReconciler) authGitFromSecret(namespace, secret string) (map[str
 	return tokenSecret.Data, nil
 }
 
-func newSecret(name, namespace string, secret map[string][]byte) *corev1.Secret {
-	k8sSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"argocd.argoproj.io/secret-type": "repository",
-			},
-		},
-		Data: secret,
-	}
-	return k8sSecret
-}
-
 func (r *PatternReconciler) copyAuthGitSecret(secretNamespace, secretName, destNamespace, destSecretName string) error {
 	sourceSecret, err := r.authGitFromSecret(secretNamespace, secretName)
 	if err != nil {
 		return err
 	}
-	newSecretCopy := newSecret(destSecretName, destNamespace, sourceSecret)
+	newSecretCopy := newSecret(destSecretName, destNamespace, sourceSecret, map[string]string{"argocd.argoproj.io/secret-type": "repository"})
 	_, err = r.fullClient.CoreV1().Secrets(destNamespace).Get(context.TODO(), destSecretName, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -668,7 +664,7 @@ func (r *PatternReconciler) copyAuthGitSecret(secretNamespace, secretName, destN
 	// The destination secret already exists so we upate it and return an error if they were different so the reconcile loop can restart
 	updatedSecret, err := r.fullClient.CoreV1().Secrets(destNamespace).Update(context.TODO(), newSecretCopy, metav1.UpdateOptions{})
 	if err == nil && !compareMaps(newSecretCopy.Data, updatedSecret.Data) {
-		return fmt.Errorf("The secret at %s/%s has been updated", destNamespace, destSecretName)
+		return fmt.Errorf("the secret at %s/%s has been updated", destNamespace, destSecretName)
 	}
 	return err
 }
@@ -681,6 +677,26 @@ func (r *PatternReconciler) getLocalGit(p *api.Pattern) (string, error) {
 			return "obtaining git auth info from secret", err
 		}
 	}
+	// // Here we dump all the CAs in kube-root-ca.crt and in openshift-config-managed/trusted-ca-bundle to a file
+	// // and then we call git config --global http.sslCAInfo /path/to/your/cacert.pem
+	// // This makes us trust our self-signed CAs or any custom CAs a customer might have
+	// if err = writeConfigMapDataToFile(r.fullClient, "openshift-config-managed", "kube-root-ca.crt", "ca.crt", "/tmp/git-CAs", false); err != nil {
+	// 	return "", err
+	// }
+	// if err = writeConfigMapDataToFile(r.fullClient, "openshift-config-managed", "trusted-ca-bundle", "ca-bundle.crt", "/tmp/git-CAs", true); err != nil {
+	// 	return "", err
+	// }
+	// cmd := exec.Command("git", "config", "--global", "http.sslCAInfo", "/tmp/git-CAs")
+	// opts := executil.ExecRunOpts{
+	// 	TimeoutBehavior: argoexec.TimeoutBehavior{
+	// 		Signal:     syscall.SIGTERM,
+	// 		ShouldWait: true,
+	// 	},
+	// }
+	// output, err := executil.RunWithExecRunOpts(cmd, opts)
+	// if err != nil {
+	// 	return fmt.Sprintf("output was: %s", output), err
+	// }
 	err = GetGit(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Spec.GitConfig.TargetRevision, p.Status.LocalCheckoutPath, gitAuthSecret)
 	if err != nil {
 		return "cloning pattern repo", err

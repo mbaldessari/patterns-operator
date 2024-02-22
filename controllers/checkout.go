@@ -59,7 +59,7 @@ func getHttpAuth(secret map[string][]byte) git.GenericHTTPSCreds {
 func getSshAuth(secret map[string][]byte) (git.SSHCreds, error) {
 	sshKey := getField(secret, "sshPrivateKey")
 	if sshKey == nil {
-		return git.SSHCreds{}, fmt.Errorf("Could not get sshPrivateKey")
+		return git.SSHCreds{}, fmt.Errorf("could not get sshPrivateKey")
 	}
 
 	// FIXME(bandini): in the future we might want to support passing some known hosts
@@ -93,7 +93,7 @@ func getAuth(gitAuth map[string][]byte) (git.Creds, error) {
 		creds = git.NopCreds{}
 		return creds, nil
 	}
-	return git.NopCreds{}, fmt.Errorf("Could not detect the authentication type")
+	return git.NopCreds{}, fmt.Errorf("could not detect the authentication type")
 }
 
 func getLocalGitPath(repoURL string) (string, error) {
@@ -115,9 +115,10 @@ func (g *GitOperationsImpl) CloneAndCheckout(repoURL, revision, localFolder stri
 
 	creds, err := getAuth(gitAuth)
 	if err != nil {
-		return fmt.Errorf("Could not get Authentication info: %w", err)
+		return fmt.Errorf("could not get Authentication info: %w", err)
 	}
-	client, err = git.NewClientExt(repoURL, localFolder, creds, false, false, "")
+	// TODO(bandini): For now use insecure to focus on argo initcontainers
+	client, err = git.NewClientExt(repoURL, localFolder, creds, true, false, "")
 	if err != nil {
 		return fmt.Errorf("failed to create Git client: %w", err)
 	}

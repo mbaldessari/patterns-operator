@@ -27,28 +27,96 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	kubeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	argoapp "github.com/argoproj-labs/argocd-operator/api/v1beta1"
+	argooperator "github.com/argoproj-labs/argocd-operator/api/v1beta1"
 	argoapi "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argoclient "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 )
 
-func newArgoCD(name, namespace string) *argoapp.ArgoCD {
+func newArgoCD(name, namespace string) *argooperator.ArgoCD {
 	argoPolicy := `g, system:cluster-admins, role:admin
 g, cluster-admins, role:admin`
 	defaultPolicy := ""
 	argoScopes := "[groups]"
-	s := argoapp.ArgoCD{
+	trueBool := true
+	initVolumes := []v1.Volume{
+		{
+			Name: "kube-root-ca",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: "kube-root-ca.crt",
+					},
+				},
+			},
+		},
+		{
+			Name: "trusted-ca-bundle",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: "trusted-ca-bundle",
+					},
+					Optional: &trueBool,
+				},
+			},
+		},
+		{
+			Name: "ca-bundles",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
+	}
+	initVolumeMounts := []v1.VolumeMount{
+		{
+			Name:      "ca-bundles",
+			MountPath: "/etc/pki/tls/certs",
+		},
+	}
+
+	initContainers := []v1.Container{
+		{
+			Name: "fetch-ca",
+			// We use this image as it is already being used in Validated Patterns
+			// FIXME(bandini): can we use one of the gitops images instead?
+			Image: "registry.redhat.io/ansible-automation-platform-24/ee-supported-rhel9:latest",
+			VolumeMounts: []v1.VolumeMount{
+				{
+					Name:      "kube-root-ca",
+					MountPath: "/var/run/kube-root-ca", // ca.crt field
+				},
+				{
+					Name:      "trusted-ca-bundle",
+					MountPath: "/var/run/trusted-ca", // ca-bundle.crt field
+				},
+				{
+					Name:      "ca-bundles",
+					MountPath: "/tmp/ca-bundles",
+				},
+			},
+			Command: []string{
+				"bash",
+				"-c",
+				"cat /var/run/kube-root-ca/ca.crt /var/run/trusted-ca/ca-bundle.crt > /tmp/ca-bundles/ca-bundle.crt || true",
+			},
+		},
+	}
+
+	s := argooperator.ArgoCD{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,
 			Namespace:  namespace,
 			Finalizers: []string{"argoproj.io/finalizer"},
 		},
-		Spec: argoapp.ArgoCDSpec{
-			ApplicationSet: &argoapp.ArgoCDApplicationSet{
+		Spec: argooperator.ArgoCDSpec{
+			ApplicationSet: &argooperator.ArgoCDApplicationSet{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
 						v1.ResourceCPU:    resource.MustParse("2"),
@@ -59,17 +127,17 @@ g, cluster-admins, role:admin`
 						v1.ResourceMemory: resource.MustParse("512Mi"),
 					},
 				},
-				WebhookServer: argoapp.WebhookServerSpec{
-					Ingress: argoapp.ArgoCDIngressSpec{
+				WebhookServer: argooperator.WebhookServerSpec{
+					Ingress: argooperator.ArgoCDIngressSpec{
 						Enabled: false,
 					},
-					Route: argoapp.ArgoCDRouteSpec{
+					Route: argooperator.ArgoCDRouteSpec{
 						Enabled: false,
 					},
 				},
 			},
 
-			Controller: argoapp.ArgoCDApplicationControllerSpec{
+			Controller: argooperator.ArgoCDApplicationControllerSpec{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
 						v1.ResourceCPU:    resource.MustParse("2"),
@@ -81,12 +149,12 @@ g, cluster-admins, role:admin`
 					},
 				},
 			},
-			Grafana: argoapp.ArgoCDGrafanaSpec{
+			Grafana: argooperator.ArgoCDGrafanaSpec{
 				Enabled: false,
-				Ingress: argoapp.ArgoCDIngressSpec{
+				Ingress: argooperator.ArgoCDIngressSpec{
 					Enabled: false,
 				},
-				Route: argoapp.ArgoCDRouteSpec{
+				Route: argooperator.ArgoCDRouteSpec{
 					Enabled: false,
 				},
 				Resources: &v1.ResourceRequirements{
@@ -100,7 +168,7 @@ g, cluster-admins, role:admin`
 					},
 				},
 			},
-			HA: argoapp.ArgoCDHASpec{
+			HA: argooperator.ArgoCDHASpec{
 				Enabled: false,
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -113,27 +181,27 @@ g, cluster-admins, role:admin`
 					},
 				},
 			},
-			Monitoring: argoapp.ArgoCDMonitoringSpec{
+			Monitoring: argooperator.ArgoCDMonitoringSpec{
 				Enabled: false,
 			},
-			Notifications: argoapp.ArgoCDNotifications{
+			Notifications: argooperator.ArgoCDNotifications{
 				Enabled: false,
 			},
-			Prometheus: argoapp.ArgoCDPrometheusSpec{
+			Prometheus: argooperator.ArgoCDPrometheusSpec{
 				Enabled: false,
-				Ingress: argoapp.ArgoCDIngressSpec{
+				Ingress: argooperator.ArgoCDIngressSpec{
 					Enabled: false,
 				},
-				Route: argoapp.ArgoCDRouteSpec{
+				Route: argooperator.ArgoCDRouteSpec{
 					Enabled: false,
 				},
 			},
-			RBAC: argoapp.ArgoCDRBACSpec{
+			RBAC: argooperator.ArgoCDRBACSpec{
 				DefaultPolicy: &defaultPolicy,
 				Policy:        &argoPolicy,
 				Scopes:        &argoScopes,
 			},
-			Redis: argoapp.ArgoCDRedisSpec{
+			Redis: argooperator.ArgoCDRedisSpec{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
 						v1.ResourceCPU:    resource.MustParse("500m"),
@@ -145,7 +213,7 @@ g, cluster-admins, role:admin`
 					},
 				},
 			},
-			Repo: argoapp.ArgoCDRepoSpec{
+			Repo: argooperator.ArgoCDRepoSpec{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
 						v1.ResourceCPU:    resource.MustParse("1"),
@@ -156,6 +224,9 @@ g, cluster-admins, role:admin`
 						v1.ResourceMemory: resource.MustParse("256Mi"),
 					},
 				},
+				InitContainers: initContainers,
+				VolumeMounts:   initVolumeMounts,
+				Volumes:        initVolumes,
 			},
 			ResourceExclusions: `- apiGroups:
   - tekton.dev
@@ -164,16 +235,16 @@ g, cluster-admins, role:admin`
   kinds:
   - TaskRun
   - PipelineRun`,
-			Server: argoapp.ArgoCDServerSpec{
-				Autoscale: argoapp.ArgoCDServerAutoscaleSpec{
+			Server: argooperator.ArgoCDServerSpec{
+				Autoscale: argooperator.ArgoCDServerAutoscaleSpec{
 					Enabled: false,
 				},
-				GRPC: argoapp.ArgoCDServerGRPCSpec{
-					Ingress: argoapp.ArgoCDIngressSpec{
+				GRPC: argooperator.ArgoCDServerGRPCSpec{
+					Ingress: argooperator.ArgoCDIngressSpec{
 						Enabled: false,
 					},
 				},
-				Ingress: argoapp.ArgoCDIngressSpec{
+				Ingress: argooperator.ArgoCDIngressSpec{
 					Enabled: false,
 				},
 				Resources: &v1.ResourceRequirements{
@@ -186,15 +257,15 @@ g, cluster-admins, role:admin`
 						v1.ResourceMemory: resource.MustParse("128Mi"),
 					},
 				},
-				Route: argoapp.ArgoCDRouteSpec{
+				Route: argooperator.ArgoCDRouteSpec{
 					Enabled: true,
 				},
-				Service: argoapp.ArgoCDServerServiceSpec{
+				Service: argooperator.ArgoCDServerServiceSpec{
 					Type: "",
 				},
 			},
-			SSO: &argoapp.ArgoCDSSOSpec{
-				Dex: &argoapp.ArgoCDDexSpec{
+			SSO: &argooperator.ArgoCDSSOSpec{
+				Dex: &argooperator.ArgoCDDexSpec{
 					OpenShiftOAuth: true,
 					Resources: &v1.ResourceRequirements{
 						Limits: v1.ResourceList{
@@ -207,7 +278,7 @@ g, cluster-admins, role:admin`
 						},
 					},
 				},
-				Provider: argoapp.SSOProviderTypeDex,
+				Provider: argooperator.SSOProviderTypeDex,
 			},
 		},
 	}
@@ -218,6 +289,23 @@ func createArgoCD(c kubeclient.Client, name, namespace string) error {
 	argo := newArgoCD(name, namespace)
 	err := c.Create(context.Background(), argo)
 	return err
+}
+
+func getArgoCD(client dynamic.Interface, name, namespace string) (*argooperator.ArgoCD, error) {
+	gvr := schema.GroupVersionResource{Group: "argoproj.io", Version: "v1beta1", Resource: "argocds"}
+	argo := &argooperator.ArgoCD{}
+	unstructuredArgo, err := client.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredArgo.UnstructuredContent(), argo)
+	return argo, err
+}
+
+func updateArgoCD(client dynamic.Interface, targetArgo, argo *argooperator.ArgoCD) (bool, error) {
+	changed := false
+	// TODO(bandini): Complete the update checks on the fields we're interested in (likely mainly the initContainer parts)
+	return changed, nil
 }
 
 func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
@@ -233,7 +321,6 @@ func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
 		{
 			Name:  "global.repoURL",
 			Value: p.Spec.GitConfig.TargetRepo,
-			//						ForceString true,
 		},
 		{
 			Name:  "global.targetRevision",
@@ -505,7 +592,7 @@ func commonApplicationSourceHelm(p *api.Pattern, prefix string) *argoapi.Applica
 	}
 }
 
-func newArgoApplication(p *api.Pattern, spec *argoapi.ApplicationSpec) *argoapi.Application {
+func newargooperatorlication(p *api.Pattern, spec *argoapi.ApplicationSpec) *argoapi.Application {
 	labels := make(map[string]string)
 	labels["validatedpatterns.io/pattern"] = p.Name
 	app := argoapi.Application{
@@ -534,7 +621,7 @@ func newApplication(p *api.Pattern) *argoapi.Application {
 	spec := commonApplicationSpec(p, []argoapi.ApplicationSource{source})
 
 	spec.SyncPolicy = commonSyncPolicy(p)
-	return newArgoApplication(p, spec)
+	return newargooperatorlication(p, spec)
 }
 
 func newMultiSourceApplication(p *api.Pattern) *argoapi.Application {
@@ -569,7 +656,7 @@ func newMultiSourceApplication(p *api.Pattern) *argoapi.Application {
 
 	spec := commonApplicationSpec(p, sources)
 	spec.SyncPolicy = commonSyncPolicy(p)
-	return newArgoApplication(p, spec)
+	return newargooperatorlication(p, spec)
 }
 
 func applicationName(p *api.Pattern) string {

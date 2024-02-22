@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net/url"
@@ -27,7 +28,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/go-errors/errors"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	configv1 "github.com/openshift/api/config/v1"
 )
@@ -187,4 +192,52 @@ func compareMaps(m1, m2 map[string][]byte) bool {
 	}
 
 	return true
+}
+func newSecret(name, namespace string, secret map[string][]byte, labels map[string]string) *corev1.Secret {
+	k8sSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    labels,
+		},
+		Data: secret,
+	}
+	return k8sSecret
+}
+
+func createSecret(fullClient kubernetes.Interface, secret *corev1.Secret) error {
+	namespace := secret.ObjectMeta.Namespace
+	name := secret.ObjectMeta.Name
+	_, err := fullClient.CoreV1().Secrets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			// Resource does not exist, create it
+			_, err = fullClient.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func createTrustedBundleCM(fullClient kubernetes.Interface) error {
+	name := "trusted-ca-bundle"
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ApplicationNamespace,
+			Labels: map[string]string{
+				"config.openshift.io/inject-trusted-cabundle": "true",
+			},
+		},
+	}
+	_, err := fullClient.CoreV1().ConfigMaps(ApplicationNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			_, err = fullClient.CoreV1().ConfigMaps(ApplicationNamespace).Create(context.TODO(), cm, metav1.CreateOptions{})
+			return err
+		}
+		return err
+	}
+	return nil
 }
