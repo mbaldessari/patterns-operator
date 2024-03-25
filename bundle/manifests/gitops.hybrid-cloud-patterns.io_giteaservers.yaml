@@ -35,14 +35,19 @@ spec:
             description: GiteaServerSpec defines the desired state of GiteaServer
             properties:
               chartName:
+                description: 'Chart Name that we will deploy. Default: gitea-chart'
                 type: string
               helmChartUrl:
-                type: string
-              namespace:
+                description: 'Helm Chart URL. Default value: https://charts.validatedpatterns.io'
                 type: string
               releaseName:
+                description: 'Release name used to deploy the chart.  Default: gitea'
                 type: string
               repoName:
+                description: 'Helm Repo name. Default: helm-charts'
+                type: string
+              version:
+                description: 'Version for the chart. Default: 0.0.3'
                 type: string
             type: object
           status:

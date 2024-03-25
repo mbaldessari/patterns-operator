@@ -19,6 +19,22 @@ spec:
       displayName: Gitea Server
       kind: GiteaServer
       name: giteaservers.gitops.hybrid-cloud-patterns.io
+      specDescriptors:
+      - description: 'Helm Chart URL. Default value: https://charts.validatedpatterns.io'
+        displayName: Helm Chart Url
+        path: helmChartUrl
+      - description: 'Helm Repo name. Default: helm-charts'
+        displayName: Helm Repo Name
+        path: repoName
+      - description: 'Chart Name that we will deploy. Default: gitea-chart'
+        displayName: Helm Chart Name
+        path: chartName
+      - description: 'Version for the chart. Default: 0.0.3'
+        displayName: Helm Chart Version
+        path: version
+      - description: 'Release name used to deploy the chart.  Default: gitea'
+        displayName: Helm Release Name
+        path: releaseName
       statusDescriptors:
       - description: Last error encountered by the pattern
         displayName: Last Error
@@ -38,58 +54,71 @@ spec:
       specDescriptors:
       - displayName: Name
         path: extraParameters[0].name
+      - description: (EXPERIMENTAL) Enable gitea support when deploying the pattern
+        displayName: Enabled
+        path: gitSpec.enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - displayName: Value
+        path: extraParameters[0].value
       - description: Git repo containing the pattern to deploy. Must use https/http
           or, for ssh, git@server:foo/bar.git
         displayName: Target Repo
         path: gitSpec.targetRepo
-      - displayName: Value
-        path: extraParameters[0].value
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:true
+      - displayName: Cluster Group Name
+        path: clusterGroupName
       - description: 'Branch, tag, or commit to deploy.  Does not support short-sha''s.
           Default: HEAD'
         displayName: Target Revision
         path: gitSpec.targetRevision
-      - displayName: Cluster Group Name
-        path: clusterGroupName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:true
+      - displayName: Git Config
+        path: gitSpec
       - description: Upstream git repo containing the pattern to deploy. Used when
           in-cluster fork to point to the upstream pattern repository
         displayName: Origin Repo
         path: gitSpec.originRepo
-      - displayName: Git Config
-        path: gitSpec
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
       - description: Branch, tag or commit in the upstream git repository. Does not
           support short-sha's. Default to HEAD
         displayName: Origin Revision
         path: gitSpec.originRevision
-      - description: 'Interval in seconds to poll for drifts between origin and target
-          repositories. Default: 180 seconds'
-        displayName: Poll Interval
-        path: gitSpec.pollInterval
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
       - displayName: Multi Source Config
         path: multiSourceConfig
       - description: '.Name is dot separated per the helm --set syntax, such as: global.something.field'
         displayName: Extra Parameters
         path: extraParameters
+      - description: 'Interval in seconds to poll for drifts between origin and target
+          repositories. Default: 180 seconds'
+        displayName: Poll Interval
+        path: gitSpec.pollInterval
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
+      - description: URLs to additional Helm parameter files
+        displayName: Extra Value Files
+        path: extraValueFiles
       - description: Optional. FQDN of the git server if automatic parsing from TargetRepo
           is broken
         displayName: Hostname
         path: gitSpec.hostname
-      - description: URLs to additional Helm parameter files
-        displayName: Extra Value Files
-        path: extraValueFiles
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
+      - displayName: Git Ops Config
+        path: gitOpsSpec
       - description: Optional. K8s secret name where the info for connecting to git
           can be found. The supported secrets are modeled after the private repositories
           in argo (https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#repositories)
           currently ssh and username+password are supported
         displayName: Token Secret
         path: gitSpec.tokenSecret
-      - displayName: Git Ops Config
-        path: gitOpsSpec
-      - description: Optional. K8s secret namespace where the token for connecting
-          to git can be found
-        displayName: Token Secret Namespace
-        path: gitSpec.tokenSecretNamespace
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
       - description: The helm chart url to fetch the helm charts from in order to
           deploy the pattern. Defaults to https://charts.validatedpatterns.io/
         displayName: Helm Repo Url
@@ -100,6 +129,12 @@ spec:
           PII information
         displayName: Analytics UUID
         path: analyticsUUID
+      - description: Optional. K8s secret namespace where the token for connecting
+          to git can be found
+        displayName: Token Secret Namespace
+        path: gitSpec.tokenSecretNamespace
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:gitSpec.enabled:false
       - description: Which chart version for the clustergroup helm chart. Defaults
           to "0.8.*"
         displayName: Cluster Group Chart Version

@@ -89,6 +89,11 @@ spec:
                 type: object
               gitSpec:
                 properties:
+                  enabled:
+                    default: false
+                    description: (EXPERIMENTAL) Enable gitea support when deploying
+                      the pattern
+                    type: boolean
                   hostname:
                     description: Optional. FQDN of the git server if automatic parsing
                       from TargetRepo is broken
