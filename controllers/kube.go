@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	kubeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"gopkg.in/yaml.v3"
@@ -40,7 +42,7 @@ func haveNamespace(controllerClient kubeclient.Client, name string) bool {
 }
 
 // Create namespace resource obj
-func createNamespace(controllerClient client.Client, name string) (bool, error) {
+func createNamespace(controllerClient kubeclient.Client, name string) (bool, error) {
 	nsObj := &v1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",
@@ -56,7 +58,7 @@ func createNamespace(controllerClient client.Client, name string) (bool, error) 
 	return true, nil
 }
 
-func deleteNamespace(controllerClient client.Client, name string) (bool, error) {
+func deleteNamespace(controllerClient kubeclient.Client, name string) (bool, error) {
 	nsObj := &v1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",

@@ -170,7 +170,7 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			"username": []byte(GiteaAdminUser),
 			"password": []byte(giteaAdminPassword),
 		}
-		giteaAdminSecret := newSecret(GiteaAdminSecretName, GiteaNamespace, false, secretData)
+		giteaAdminSecret := newSecret(GiteaAdminSecretName, GiteaNamespace, secretData, nil)
 		err = r.Client.Create(context.Background(), giteaAdminSecret)
 		if err != nil {
 			r.logger.Info("Could not create Gitea Admin Secret")
