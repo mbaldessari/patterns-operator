@@ -91,8 +91,9 @@ spec:
                 properties:
                   enabled:
                     default: false
-                    description: (EXPERIMENTAL) Enable gitea support when deploying
-                      the pattern
+                    description: |-
+                      Account              string `json:"account,omitempty"`
+                      (EXPERIMENTAL) Enable gitea support when deploying the pattern
                     type: boolean
                   hostname:
                     description: Optional. FQDN of the git server if automatic parsing
