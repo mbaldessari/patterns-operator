@@ -145,7 +145,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
-	if *instance.Spec.GitConfig.GiteaEnabled {
+	if instance.Spec.GitConfig.GiteaEnabled != nil && *instance.Spec.GitConfig.GiteaEnabled {
 		// First let's see if there's a GiteaServer instance
 		// We list all the instances of a GiteaServer
 		// We don't care what the name of the instance is. If there's one present
@@ -490,6 +490,10 @@ func (r *PatternReconciler) applyDefaults(input *api.Pattern) (*api.Pattern, err
 		}
 		output.Spec.GitConfig.Hostname = hostname
 	}
+	if output.Spec.GitConfig.GiteaEnabled == nil {
+		giteaEnabled := false
+		output.Spec.GitConfig.GiteaEnabled = &giteaEnabled
+	}
 
 	if output.Spec.MultiSourceConfig.Enabled == nil {
 		multiSourceBool := true
@@ -503,10 +507,6 @@ func (r *PatternReconciler) applyDefaults(input *api.Pattern) (*api.Pattern, err
 	}
 	if output.Spec.MultiSourceConfig.ClusterGroupChartVersion == "" {
 		output.Spec.MultiSourceConfig.ClusterGroupChartVersion = "0.8.*"
-	}
-	if output.Spec.GitConfig.GiteaEnabled == nil {
-		giteaEnabled := false
-		output.Spec.GitConfig.GiteaEnabled = &giteaEnabled
 	}
 
 	// interval cannot be less than 180 seconds to avoid drowning the API server in requests
