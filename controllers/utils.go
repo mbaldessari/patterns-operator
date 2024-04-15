@@ -19,6 +19,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/url"
@@ -286,4 +287,14 @@ func hasExperimentalCapability(capabilities, name string) bool {
 		}
 	}
 	return false
+}
+
+// Generate a random password
+func GenerateRandomPassword(length int) (string, error) {
+	rndbytes := make([]byte, length)
+	_, err := rand.Read(rndbytes)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(rndbytes), nil
 }

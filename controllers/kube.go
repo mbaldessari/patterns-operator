@@ -40,7 +40,7 @@ func haveNamespace(controllerClient kubeclient.Client, name string) bool {
 }
 
 // Create namespace resource obj
-func createNamespace(controllerClient client.Client, name string) (bool, error) {
+func createNamespace(controllerClient kubeclient.Client, name string) (bool, error) {
 	nsObj := &v1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",
@@ -56,7 +56,7 @@ func createNamespace(controllerClient client.Client, name string) (bool, error) 
 	return true, nil
 }
 
-func deleteNamespace(controllerClient client.Client, name string) (bool, error) {
+func deleteNamespace(controllerClient kubeclient.Client, name string) (bool, error) {
 	nsObj := &v1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",
@@ -118,7 +118,7 @@ func referSameObject(a, b *metav1.OwnerReference) bool {
 	return aGV.Group == bGV.Group && a.Kind == b.Kind && a.Name == b.Name
 }
 
-func getRoute(controllerClient client.Client, name, ns string) (string, error) {
+func getRoute(controllerClient kubeclient.Client, name, ns string) (string, error) {
 	route := &routev1.Route{}
 	err := controllerClient.Get(context.Background(), types.NamespacedName{Name: name, Namespace: ns}, route)
 	if err != nil {
@@ -134,7 +134,7 @@ func getRoute(controllerClient client.Client, name, ns string) (string, error) {
 }
 
 // Get a Secret instance
-func getSecret(controllerClient client.Client, name, ns string) (*v1.Secret, error) {
+func getSecret(controllerClient kubeclient.Client, name, ns string) (*v1.Secret, error) {
 	secret := &v1.Secret{}
 	err := controllerClient.Get(context.Background(), types.NamespacedName{Name: name, Namespace: ns}, secret)
 	if err != nil {
