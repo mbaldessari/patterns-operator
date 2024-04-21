@@ -46,8 +46,6 @@ const (
 	GitAuthSsh      GitAuthenticationBackend = 2
 )
 
-const GitCustomCAFile = "/tmp/vp-git-cas.pem"
-
 const VPTmpFolder = "vp"
 
 // GitOperations interface defines the methods used from the go-git package.

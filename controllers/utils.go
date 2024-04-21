@@ -24,7 +24,6 @@ import (
 	"log"
 	nethttp "net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 
@@ -241,42 +240,23 @@ func getClusterWideArgoNamespace() string {
 	return ApplicationNamespace
 }
 
-// writeConfigMapKeyToFile writes the value of a specified key from a ConfigMap to a file.
+// getConfigMapKeyToFile gets the value of a specified key from a ConfigMap.
 // `configMapName` is the name of the ConfigMap.
 // `namespace` is the namespace where the ConfigMap resides.
 // `key` is the key within the ConfigMap whose value will be written to the file.
-// `filePath` is the path to the file where the value will be written.
-// `append` will append the data to the file
-func writeConfigMapKeyToFile(fullClient kubernetes.Interface, namespace, configMapName, key, filePath string, appendToFile bool) error {
+func getConfigMapKey(fullClient kubernetes.Interface, namespace, configMapName, key string) (string, error) {
 	// Get the ConfigMap
 	configMap, err := fullClient.CoreV1().ConfigMaps(namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("error getting ConfigMap %s in namespace %s: %w", configMapName, namespace, err)
+		return "", fmt.Errorf("error getting ConfigMap %s in namespace %s: %w", configMapName, namespace, err)
 	}
 	// Get the value for the specified key
 	value, ok := configMap.Data[key]
 	if !ok {
-		return fmt.Errorf("key %s not found in ConfigMap %s", key, configMapName)
-	}
-	// Determine the file mode: append or truncate
-	var fileMode int
-	if appendToFile {
-		fileMode = os.O_APPEND | os.O_CREATE | os.O_WRONLY
-	} else {
-		fileMode = os.O_TRUNC | os.O_CREATE | os.O_WRONLY
-	}
-	// Open the file with the determined mode
-	file, err := os.OpenFile(filePath, fileMode, 0644) //nolint:mnd
-	if err != nil {
-		return fmt.Errorf("error opening file %s: %w", filePath, err)
-	}
-	defer file.Close()
-	// Write (or append) the value to the file
-	if _, err = file.WriteString(value + "\n"); err != nil {
-		return fmt.Errorf("error writing to file %s: %w", filePath, err)
+		return "", fmt.Errorf("key %s not found in ConfigMap %s", key, configMapName)
 	}
 
-	return nil
+	return value, nil
 }
 
 func hasExperimentalCapability(capabilities, name string) bool {
@@ -297,12 +277,17 @@ func getHTTPSTransport(fullClient kubernetes.Interface) *nethttp.Transport {
 	// and then we call git config --global http.sslCAInfo /path/to/your/cacert.pem
 	// This makes us trust our self-signed CAs or any custom CAs a customer might have. We try and ignore any errors here
 	var err error
+	var kuberoot string = ""
+	var trustedcabundle string = ""
+
 	if fullClient != nil {
-		if err = writeConfigMapKeyToFile(fullClient, "openshift-config-managed", "kube-root-ca.crt", "ca.crt", GitCustomCAFile, false); err != nil {
-			fmt.Printf("Error while writing kube-root-ca.crt configmap to file: %v", err)
+		kuberoot, err = getConfigMapKey(fullClient, "openshift-config-managed", "kube-root-ca.crt", "ca.crt")
+		if err != nil {
+			fmt.Printf("Error while getting kube-root-ca.crt configmap: %v", err)
 		}
-		if err = writeConfigMapKeyToFile(fullClient, "openshift-config-managed", "trusted-ca-bundle", "ca-bundle.crt", GitCustomCAFile, true); err != nil {
-			fmt.Printf("Error while appending trusted-ca-bundle configmap to file: %v", err)
+		trustedcabundle, err = getConfigMapKey(fullClient, "openshift-config-managed", "trusted-ca-bundle", "ca-bundle.crt")
+		if err != nil {
+			fmt.Printf("Error while getting trusted-ca-bundle configmap: %v", err)
 		}
 	}
 	myTransport := &nethttp.Transport{
@@ -311,12 +296,29 @@ func getHTTPSTransport(fullClient kubernetes.Interface) *nethttp.Transport {
 		},
 		Proxy: nethttp.ProxyFromEnvironment,
 	}
-	caCert, err := os.ReadFile(GitCustomCAFile)
-	if err == nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		myTransport.TLSClientConfig.RootCAs = caCertPool
+	var cacerts bytes.Buffer
+	if kuberoot != "" {
+		cacerts.WriteString(kuberoot)
 	}
+	if trustedcabundle != "" {
+		cacerts.WriteString("\n")
+		cacerts.WriteString(trustedcabundle)
+		cacerts.WriteString("\n")
+	}
+	// We run either in a test env or we could not fetch any certificates at all
+	// Fallback to system certs
+	var caCertPool *x509.CertPool
+	var certErr error
+	if kuberoot == "" && trustedcabundle == "" {
+		caCertPool, certErr = x509.SystemCertPool()
+	} else {
+		caCertPool = x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(cacerts.Bytes())
+	}
+	if certErr != nil {
+		return myTransport
+	}
+	myTransport.TLSClientConfig.RootCAs = caCertPool
 	return myTransport
 }
 
