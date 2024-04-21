@@ -292,7 +292,19 @@ func hasExperimentalCapability(capabilities, name string) bool {
 	return false
 }
 
-func getHTTPSTransport() *nethttp.Transport {
+func getHTTPSTransport(fullClient kubernetes.Interface) *nethttp.Transport {
+	// Here we dump all the CAs in kube-root-ca.crt and in openshift-config-managed/trusted-ca-bundle to a file
+	// and then we call git config --global http.sslCAInfo /path/to/your/cacert.pem
+	// This makes us trust our self-signed CAs or any custom CAs a customer might have. We try and ignore any errors here
+	var err error
+	if fullClient != nil {
+		if err = writeConfigMapKeyToFile(fullClient, "openshift-config-managed", "kube-root-ca.crt", "ca.crt", GitCustomCAFile, false); err != nil {
+			fmt.Printf("Error while writing kube-root-ca.crt configmap to file: %v", err)
+		}
+		if err = writeConfigMapKeyToFile(fullClient, "openshift-config-managed", "trusted-ca-bundle", "ca-bundle.crt", GitCustomCAFile, true); err != nil {
+			fmt.Printf("Error while appending trusted-ca-bundle configmap to file: %v", err)
+		}
+	}
 	myTransport := &nethttp.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,

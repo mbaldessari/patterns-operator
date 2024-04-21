@@ -333,7 +333,7 @@ func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, err
 		}
 
 		// Let's attempt to migrate the repo to Gitea
-		_, _, err := migrateGiteaRepo(string(secret.Data["username"]),
+		_, _, err := migrateGiteaRepo(r.fullClient, string(secret.Data["username"]),
 			string(secret.Data["password"]),
 			instance.Spec.GitConfig.TargetRepo,
 			giteaRouteURL)
@@ -729,19 +729,10 @@ func (r *PatternReconciler) getLocalGit(p *api.Pattern) (string, error) {
 			return "obtaining git auth info from secret", err
 		}
 	}
-	// Here we dump all the CAs in kube-root-ca.crt and in openshift-config-managed/trusted-ca-bundle to a file
-	// and then we call git config --global http.sslCAInfo /path/to/your/cacert.pem
-	// This makes us trust our self-signed CAs or any custom CAs a customer might have. We try and ignore any errors here
-	if err = writeConfigMapKeyToFile(r.fullClient, "openshift-config-managed", "kube-root-ca.crt", "ca.crt", GitCustomCAFile, false); err != nil {
-		fmt.Printf("Error while writing kube-root-ca.crt configmap to file: %v", err)
-	}
-	if err = writeConfigMapKeyToFile(r.fullClient, "openshift-config-managed", "trusted-ca-bundle", "ca-bundle.crt", GitCustomCAFile, true); err != nil {
-		fmt.Printf("Error while appending trusted-ca-bundle configmap to file: %v", err)
-	}
 
 	gitDir := filepath.Join(p.Status.LocalCheckoutPath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		err = cloneRepo(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath, gitAuthSecret)
+		err = cloneRepo(r.fullClient, r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath, gitAuthSecret)
 		if err != nil {
 			return "cloning pattern repo", err
 		}
@@ -756,13 +747,13 @@ func (r *PatternReconciler) getLocalGit(p *api.Pattern) (string, error) {
 			if err != nil {
 				return "failed to remove locally cloned folder", err
 			}
-			err = cloneRepo(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath, gitAuthSecret)
+			err = cloneRepo(r.fullClient, r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath, gitAuthSecret)
 			if err != nil {
 				return "cloning pattern repo after removal", err
 			}
 		}
 	}
-	if err := checkoutRevision(r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath,
+	if err := checkoutRevision(r.fullClient, r.gitOperations, p.Spec.GitConfig.TargetRepo, p.Status.LocalCheckoutPath,
 		p.Spec.GitConfig.TargetRevision, gitAuthSecret); err != nil {
 		return "checkout target revision", err
 	}
