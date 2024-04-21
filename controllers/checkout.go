@@ -17,8 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	nethttp "net/http"
 	"os"
@@ -162,22 +160,6 @@ func getCommitFromTarget(repo *git.Repository, name string) (plumbing.Hash, erro
 	}
 
 	return plumbing.ZeroHash, fmt.Errorf("unknown target %q", name)
-}
-
-func getHTTPSTransport() *nethttp.Transport {
-	myTransport := &nethttp.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
-		Proxy: nethttp.ProxyFromEnvironment,
-	}
-	caCert, err := os.ReadFile(GitCustomCAFile)
-	if err == nil {
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		myTransport.TLSClientConfig.RootCAs = caCertPool
-	}
-	return myTransport
 }
 
 func checkoutRevision(gitOps GitOperations, url, directory, commit string, secret map[string][]byte) error {

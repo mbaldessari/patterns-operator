@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 
@@ -33,15 +32,8 @@ import (
 // Function that creates a mirror repo in Gitea
 func migrateGiteaRepo(username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
-	// Load system CAs + OCP internal CAs
-	rootCAs := getSystemAndOpenShiftCAs()
 	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    rootCAs,
-				MinVersion: tls.VersionTLS12,
-			},
-		},
+		Transport: getHTTPSTransport(),
 	}
 
 	giteaClient, err := gitea.NewClient(giteaServerRoute, option, gitea.SetHTTPClient(httpClient))
