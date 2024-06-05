@@ -62,7 +62,7 @@ const (
 	// Repo name for the Validated Patterns Helm repo
 	GiteaRepoName = "helm-charts"
 	// Gitea chart name in the Validated Patterns repo
-	GiteaChartName = "gitea-chart"
+	GiteaChartName = "gitea"
 	// Release name used by the Helm SDK
 	GiteaReleaseName = "gitea"
 	// Namespace for the Gitea resources
