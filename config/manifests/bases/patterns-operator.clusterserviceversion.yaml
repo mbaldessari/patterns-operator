@@ -36,11 +36,6 @@ spec:
       specDescriptors:
       - displayName: Name
         path: extraParameters[0].name
-      - description: (EXPERIMENTAL) Enable gitea support when deploying the pattern
-        displayName: Enable Gitea
-        path: gitSpec.enableGitea
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - displayName: Value
         path: extraParameters[0].value
       - description: Git repo containing the pattern to deploy. Must use https/http

@@ -143,7 +143,7 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// GiteaServer Instance Additions
 	// Check to see if we need GiteaServer instance
-	if instance.Spec.GitConfig.EnableGitea != nil && *instance.Spec.GitConfig.EnableGitea {
+	if instance.Spec.GitConfig.OriginRepo != "" {
 		ret, giteaErr := r.giteaServerSetup(instance)
 		if giteaErr != nil {
 			return r.actionPerformed(instance, ret, giteaErr)
@@ -317,7 +317,7 @@ func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, err
 		return "GiteaServer route not ready", routeErr
 	}
 	// Extract the repository name from the original target repo
-	upstreamRepoName, repoErr := extractRepositoryName(instance.Spec.GitConfig.TargetRepo)
+	upstreamRepoName, repoErr := extractRepositoryName(instance.Spec.GitConfig.OriginRepo)
 	if repoErr != nil {
 		return "Target Repo URL", repoErr
 	}
