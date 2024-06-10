@@ -335,10 +335,10 @@ func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, err
 		// Let's attempt to migrate the repo to Gitea
 		_, _, err := migrateGiteaRepo(r.fullClient, string(secret.Data["username"]),
 			string(secret.Data["password"]),
-			instance.Spec.GitConfig.TargetRepo,
+			instance.Spec.GitConfig.OriginRepo,
 			giteaRouteURL)
 		if err != nil {
-			return "GiteaServer Migrate Repository", err
+			return "GiteaServer Migrate Repository Error: ", err
 		}
 
 		// Migrate Repo has been done.

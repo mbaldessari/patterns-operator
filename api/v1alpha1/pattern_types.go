@@ -90,7 +90,7 @@ type GitConfig struct {
 
 	// Git repo containing the pattern to deploy. Must use https/http or, for ssh, git@server:foo/bar.git
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
-	TargetRepo string `json:"targetRepo"`
+	TargetRepo string `json:"targetRepo,omitempty"`
 
 	// Branch, tag, or commit to deploy.  Does not support short-sha's. Default: HEAD
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3

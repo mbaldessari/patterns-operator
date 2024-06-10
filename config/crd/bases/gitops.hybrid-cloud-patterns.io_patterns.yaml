@@ -124,8 +124,6 @@ spec:
                     description: Optional. K8s secret namespace where the token for
                       connecting to git can be found
                     type: string
-                required:
-                - targetRepo
                 type: object
               multiSourceConfig:
                 properties:
