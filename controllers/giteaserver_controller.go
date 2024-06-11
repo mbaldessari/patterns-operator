@@ -59,6 +59,7 @@ type GiteaServerReconciler struct {
 //+kubebuilder:rbac:groups=apps.openshift.io,namespace=vp-gitea,resources=deploymentconfigs,verbs=*
 //+kubebuilder:rbac:groups=apps,namespace=vp-gitea,resources=deployments/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=list;watch;delete;update;get;create;patch
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=create;patch;get;update;list
 //+kubebuilder:rbac:groups="",namespace=vp-gitea,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
