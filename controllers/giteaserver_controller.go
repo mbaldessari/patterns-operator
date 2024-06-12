@@ -189,12 +189,11 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		} else {
 			consoleHref = fmt.Sprintf("https://%s-%s.%s", GiteaRouteName, GiteaNamespace, clusterIngress.Spec.Domain)
 		}
-		// Create the overrides
-		// They should be comma separated
-		// e.g. user=me,password=123, etc etc
-		// In this case we point gitea to use the newly created existing secret
-		gitea_overrides := fmt.Sprintf("gitea.admin.existingSecret=%s,gitea.console.href=%s", GiteaAdminSecretName, consoleHref)
 
+		gitea_overrides := fmt.Sprintf("gitea.admin.existingSecret=%s,gitea.console.href=%s", GiteaAdminSecretName, consoleHref)
+		if consoleHref != "" {
+			gitea_overrides = fmt.Sprintf("%s,gitea.config.server.ROOT_URL=%s", gitea_overrides, consoleHref)
+		}
 		// Install charts
 		args := map[string]string{
 			"set": gitea_overrides,
