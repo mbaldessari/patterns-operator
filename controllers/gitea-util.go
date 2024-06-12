@@ -30,8 +30,16 @@ import (
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
 )
 
+type GiteaOperations interface {
+	MigrateGiteaRepo(fullClient kubernetes.Interface, username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error)
+	HasGiteaInstance(c client.Client) (exists bool, err error)
+	CreateGiteaInstance(c client.Client) error
+}
+
+type GiteaOperationsImpl struct{}
+
 // Function that creates a mirror repo in Gitea
-func migrateGiteaRepo(fullClient kubernetes.Interface, username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
+func (g *GiteaOperationsImpl) MigrateGiteaRepo(fullClient kubernetes.Interface, username, password, upstreamURL, giteaServerRoute string) (success bool, repositoryURL string, err error) {
 	option := gitea.SetBasicAuth(username, password)
 	httpClient := &http.Client{
 		Transport: getHTTPSTransport(fullClient),
@@ -75,7 +83,7 @@ func migrateGiteaRepo(fullClient kubernetes.Interface, username, password, upstr
 	return true, repository.HTMLURL, nil
 }
 
-func hasGiteaInstance(c client.Client) (exists bool, err error) {
+func (g *GiteaOperationsImpl) HasGiteaInstance(c client.Client) (exists bool, err error) {
 	// First let's see if there's a GiteaServer instance
 	// We list all the instances of a GiteaServer
 	// We don't care what the name of the instance is. If there's one present
@@ -93,7 +101,7 @@ func hasGiteaInstance(c client.Client) (exists bool, err error) {
 	return true, nil
 }
 
-func createGiteaInstance(c client.Client) error {
+func (g *GiteaOperationsImpl) CreateGiteaInstance(c client.Client) error {
 	giteaServerInstance := &api.GiteaServer{
 		ObjectMeta: metav1.ObjectMeta{Name: GiteaServerDefaultName, Namespace: GiteaNamespace},
 		Spec: api.GiteaServerSpec{

@@ -28,8 +28,10 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "github.com/openshift/api/config/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	configclient "github.com/openshift/client-go/config/clientset/versioned/fake"
 	operatorclient "github.com/openshift/client-go/operator/clientset/versioned/fake"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned/fake"
 	olmclient "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/fake"
 	gomock "go.uber.org/mock/gomock"
 
@@ -53,20 +55,31 @@ const (
 var (
 	patternNamespaced = types.NamespacedName{Name: foo, Namespace: namespace}
 	mockGitOps        *MockGitOperations
+	mockGiteaOps      *MockGiteaOperations
 )
 var _ = Describe("pattern controller", func() {
 
 	var _ = Context("reconciliation", func() {
 		var (
-			p          *api.Pattern
-			reconciler *PatternReconciler
-			watch      *watcher
-			gitOptions *git.CloneOptions
+			p               *api.Pattern
+			reconciler      *PatternReconciler
+			watch           *watcher
+			gitOptions      *git.CloneOptions
+			gitOptionsGitea *git.CloneOptions
 		)
 		BeforeEach(func() {
 			nsOperators := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 			reconciler = newFakeReconciler(nsOperators, buildPatternManifest(10))
 			watch = reconciler.driftWatcher.(*watcher)
+			gitOptionsGitea = &git.CloneOptions{
+				URL:      "https://foo.bar/gitea_admin/.",
+				Progress: os.Stdout,
+				Depth:    0,
+				// ReferenceName: plumbing.ReferenceName,
+				RemoteName:   "origin",
+				SingleBranch: false,
+				Tags:         git.AllTags,
+			}
 			gitOptions = &git.CloneOptions{
 				URL:      "https://target.url",
 				Progress: os.Stdout,
@@ -76,12 +89,16 @@ var _ = Describe("pattern controller", func() {
 				SingleBranch: false,
 				Tags:         git.AllTags,
 			}
+
 		})
 
 		It("adding a pattern with origin, target and interval >-1", func() {
 			By("adding the pattern to the watch")
-			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___target.url", false, gitOptions).Return(nil, nil)
-			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___target.url").Return(nil, nil)
+			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___foo.bar_gitea_admin_.", false, gitOptionsGitea).Return(nil, nil)
+			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___foo.bar_gitea_admin_.").Return(nil, nil)
+			mockGiteaOps.EXPECT().HasGiteaInstance(reconciler.Client).Return(false, nil)
+			mockGiteaOps.EXPECT().CreateGiteaInstance(reconciler.Client).Return(nil)
+			mockGiteaOps.EXPECT().MigrateGiteaRepo(reconciler.fullClient, "foo", "password", "https://origin.url", "https://foo.bar").Return(false, "faz", nil)
 			_, _ = reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: patternNamespaced})
 			Expect(watch.repoPairs).To(HaveLen(1))
 			Expect(watch.repoPairs[0].name).To(Equal(foo))
@@ -93,6 +110,9 @@ var _ = Describe("pattern controller", func() {
 			p = &api.Pattern{}
 			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___target.url", false, gitOptions).Return(nil, nil)
 			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___target.url").Return(nil, nil)
+			mockGiteaOps.EXPECT().HasGiteaInstance(reconciler.Client).Return(false, nil)
+			mockGiteaOps.EXPECT().CreateGiteaInstance(reconciler.Client).Return(nil)
+			mockGiteaOps.EXPECT().MigrateGiteaRepo(reconciler.fullClient, "foo", "password", "https://origin.url", "https://foo.bar").Return(false, "faz", nil)
 			err := reconciler.Client.Get(context.Background(), patternNamespaced, p)
 			Expect(err).NotTo(HaveOccurred())
 			p.Spec.GitConfig.OriginRepo = ""
@@ -106,8 +126,11 @@ var _ = Describe("pattern controller", func() {
 
 		It("adding a pattern with interval == -1", func() {
 			p = &api.Pattern{}
-			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___target.url", false, gitOptions).Return(nil, nil)
-			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___target.url").Return(nil, nil)
+			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___foo.bar_gitea_admin_.", false, gitOptionsGitea).Return(nil, nil)
+			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___foo.bar_gitea_admin_.").Return(nil, nil)
+			mockGiteaOps.EXPECT().HasGiteaInstance(reconciler.Client).Return(false, nil)
+			mockGiteaOps.EXPECT().CreateGiteaInstance(reconciler.Client).Return(nil)
+			mockGiteaOps.EXPECT().MigrateGiteaRepo(reconciler.fullClient, "foo", "password", "https://origin.url", "https://foo.bar").Return(false, "faz", nil)
 			err := reconciler.Client.Get(context.Background(), patternNamespaced, p)
 			Expect(err).NotTo(HaveOccurred())
 			p.Spec.GitConfig.PollInterval = -1
@@ -120,8 +143,11 @@ var _ = Describe("pattern controller", func() {
 		})
 
 		It("validates changes to the poll interval in the manifest", func() {
-			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___target.url", false, gitOptions).Return(nil, nil).AnyTimes()
-			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___target.url").Return(nil, nil).AnyTimes()
+			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___foo.bar_gitea_admin_.", false, gitOptionsGitea).Return(nil, nil).AnyTimes()
+			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___foo.bar_gitea_admin_.").Return(nil, nil).AnyTimes()
+			mockGiteaOps.EXPECT().HasGiteaInstance(reconciler.Client).Return(false, nil).AnyTimes()
+			mockGiteaOps.EXPECT().CreateGiteaInstance(reconciler.Client).Return(nil).AnyTimes()
+			mockGiteaOps.EXPECT().MigrateGiteaRepo(reconciler.fullClient, "foo", "password", "https://origin.url", "https://foo.bar").Return(false, "faz", nil).AnyTimes()
 			_, _ = reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: patternNamespaced})
 			Expect(watch.repoPairs).To(HaveLen(1))
 
@@ -160,8 +186,11 @@ var _ = Describe("pattern controller", func() {
 		})
 
 		It("removes an existing pattern from the drift watcher by changing the originRepository to empty", func() {
-			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___target.url", false, gitOptions).Return(nil, nil).AnyTimes()
-			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___target.url").Return(nil, nil).AnyTimes()
+			mockGitOps.EXPECT().CloneRepository("/tmp/vp/https___foo.bar_gitea_admin_.", false, gitOptionsGitea).Return(nil, nil).AnyTimes()
+			mockGitOps.EXPECT().OpenRepository("/tmp/vp/https___foo.bar_gitea_admin_.").Return(nil, nil).AnyTimes()
+			mockGiteaOps.EXPECT().HasGiteaInstance(reconciler.Client).Return(false, nil).AnyTimes()
+			mockGiteaOps.EXPECT().CreateGiteaInstance(reconciler.Client).Return(nil).AnyTimes()
+			mockGiteaOps.EXPECT().MigrateGiteaRepo(reconciler.fullClient, "foo", "password", "https://origin.url", "https://foo.bar").Return(false, "faz", nil).AnyTimes()
 			_, _ = reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: patternNamespaced})
 			Expect(watch.repoPairs).To(HaveLen(1))
 
@@ -206,6 +235,7 @@ func newFakeReconciler(initObjects ...runtime.Object) *PatternReconciler {
 	mockctrl := gomock.NewController(GinkgoT())
 	defer mockctrl.Finish()
 	mockGitOps = NewMockGitOperations(mockctrl)
+	mockGiteaOps = NewMockGiteaOperations(mockctrl)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(initObjects...).Build()
 	clusterVersion := &v1.ClusterVersion{
@@ -226,17 +256,39 @@ func newFakeReconciler(initObjects ...runtime.Object) *PatternReconciler {
 		Spec:       operatorv1.OpenShiftControllerManagerSpec{},
 		Status:     operatorv1.OpenShiftControllerManagerStatus{OperatorStatus: operatorv1.OperatorStatus{Version: "4.10.3"}}}
 	ingress := &v1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "cluster"}, Spec: v1.IngressSpec{Domain: "hello.world"}}
+	route := &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      GiteaRouteName,
+			Namespace: GiteaNamespace,
+		},
+		Spec: routev1.RouteSpec{
+			Host: "hello.world",
+		},
+		Status: routev1.RouteStatus{
+			Ingress: []routev1.RouteIngress{
+				{Host: "foo.bar"},
+			},
+		},
+	}
+	giteaSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "gitea-admin-secret", Namespace: GiteaNamespace},
+		Data: map[string][]byte{
+			"username": []byte("foo"),
+			"password": []byte("password"),
+		},
+	}
 	watcher, _ := newDriftWatcher(fakeClient, logr.New(log.NullLogSink{}), newGitClient())
 	return &PatternReconciler{
 		Scheme:          scheme.Scheme,
 		Client:          fakeClient,
 		olmClient:       olmclient.NewSimpleClientset(),
 		driftWatcher:    watcher,
-		fullClient:      kubeclient.NewSimpleClientset(),
+		fullClient:      kubeclient.NewSimpleClientset(giteaSecret),
 		configClient:    configclient.NewSimpleClientset(clusterVersion, clusterInfra, ingress),
+		routeClient:     routeclient.NewSimpleClientset(route),
 		operatorClient:  operatorclient.NewSimpleClientset(osControlManager).OperatorV1(),
 		AnalyticsClient: AnalyticsInit(true, logr.New(log.NullLogSink{})),
 		gitOperations:   mockGitOps,
+		giteaOperations: mockGiteaOps,
 	}
 }
 

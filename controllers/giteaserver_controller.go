@@ -36,6 +36,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	configclient "github.com/openshift/client-go/config/clientset/versioned"
 )
 
 // GiteaServerReconciler reconciles a GiteaServer object
@@ -43,7 +45,8 @@ type GiteaServerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 
-	logger logr.Logger
+	logger       logr.Logger
+	configClient configclient.Interface
 }
 
 // RBAC rules for the Gitea controller
@@ -177,12 +180,20 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			r.logger.Info("Could not create Gitea Admin Secret")
 		}
 
+		// Derive cluster and domain names
+		// oc get Ingress.config.openshift.io/cluster -o jsonpath='{.spec.domain}'
+		var consoleHref string
+		clusterIngress, err := r.configClient.ConfigV1().Ingresses().Get(context.Background(), "cluster", metav1.GetOptions{})
+		if err != nil || clusterIngress.Spec.Domain == "" {
+			consoleHref = ""
+		} else {
+			consoleHref = fmt.Sprintf("https://%s-%s.%s", GiteaRouteName, GiteaNamespace, clusterIngress.Spec.Domain)
+		}
 		// Create the overrides
 		// They should be comma separated
 		// e.g. user=me,password=123, etc etc
 		// In this case we point gitea to use the newly created existing secret
-
-		gitea_overrides := fmt.Sprintf("gitea.admin.existingSecret=%s,", GiteaAdminSecretName)
+		gitea_overrides := fmt.Sprintf("gitea.admin.existingSecret=%s,gitea.console.href=%s", GiteaAdminSecretName, consoleHref)
 
 		// Install charts
 		args := map[string]string{
@@ -195,7 +206,7 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			instance.Spec.HelmChartName,
 			instance.Spec.HelmChartVersion, args)
 		if err != nil {
-			return r.actionPerformed(instance, "install helm chart", err)
+			return r.actionPerformed(instance, "install helm chart error: ", err)
 		}
 	} else if fDeployed && err != nil {
 		return r.actionPerformed(instance, "GiteaServer deployment", err)
@@ -219,6 +230,10 @@ func (r *GiteaServerReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GiteaServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	var err error
+	if r.configClient, err = configclient.NewForConfig(mgr.GetConfig()); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gitopsv1alpha1.GiteaServer{}).
 		Complete(r)

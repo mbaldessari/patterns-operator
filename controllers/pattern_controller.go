@@ -41,6 +41,7 @@ import (
 	argoapi "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	argoclient "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned"
 	configclient "github.com/openshift/client-go/config/clientset/versioned"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned"
 	olmclient "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned"
 	"k8s.io/client-go/kubernetes"
 
@@ -56,15 +57,17 @@ type PatternReconciler struct {
 
 	logger logr.Logger
 
-	config         *rest.Config
-	configClient   configclient.Interface
-	argoClient     argoclient.Interface
-	olmClient      olmclient.Interface
-	fullClient     kubernetes.Interface
-	dynamicClient  dynamic.Interface
-	operatorClient operatorclient.OperatorV1Interface
-	driftWatcher   driftWatcher
-	gitOperations  GitOperations
+	config          *rest.Config
+	configClient    configclient.Interface
+	argoClient      argoclient.Interface
+	olmClient       olmclient.Interface
+	fullClient      kubernetes.Interface
+	dynamicClient   dynamic.Interface
+	routeClient     routeclient.Interface
+	operatorClient  operatorclient.OperatorV1Interface
+	driftWatcher    driftWatcher
+	gitOperations   GitOperations
+	giteaOperations GiteaOperations
 }
 
 //+kubebuilder:rbac:groups=gitops.hybrid-cloud-patterns.io,resources=patterns,verbs=get;list;watch;create;update;patch;delete
@@ -301,18 +304,18 @@ func (r *PatternReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, error) {
-	hasGitea, hasGiteaErr := hasGiteaInstance(r.Client)
+	hasGitea, hasGiteaErr := r.giteaOperations.HasGiteaInstance(r.Client)
 	if hasGiteaErr != nil {
 		return "error while checking for gitea instance existence", hasGiteaErr
 	}
 	if !hasGitea {
-		if err := createGiteaInstance(r.Client); err != nil {
+		if err := r.giteaOperations.CreateGiteaInstance(r.Client); err != nil {
 			return "create GiteaServer Instance", err
 		}
 	}
 
 	// Let's get the GiteaServer route
-	giteaRouteURL, routeErr := getRoute(r.config, "gitea-route", GiteaNamespace)
+	giteaRouteURL, routeErr := getRoute(r.routeClient, GiteaRouteName, GiteaNamespace)
 	if routeErr != nil {
 		return "GiteaServer route not ready", routeErr
 	}
@@ -333,7 +336,7 @@ func (r *PatternReconciler) giteaServerSetup(instance *api.Pattern) (string, err
 		}
 
 		// Let's attempt to migrate the repo to Gitea
-		_, _, err := migrateGiteaRepo(r.fullClient, string(secret.Data["username"]),
+		_, _, err := r.giteaOperations.MigrateGiteaRepo(r.fullClient, string(secret.Data["username"]),
 			string(secret.Data["password"]),
 			instance.Spec.GitConfig.OriginRepo,
 			giteaRouteURL)
@@ -566,8 +569,12 @@ func (r *PatternReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if r.operatorClient, err = operatorclient.NewForConfig(r.config); err != nil {
 		return err
 	}
+	if r.routeClient, err = routeclient.NewForConfig(r.config); err != nil {
+		return err
+	}
 	r.driftWatcher, _ = newDriftWatcher(r.Client, mgr.GetLogger(), newGitClient())
 	r.gitOperations = &GitOperationsImpl{}
+	r.giteaOperations = &GiteaOperationsImpl{}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&api.Pattern{}).

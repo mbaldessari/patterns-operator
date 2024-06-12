@@ -75,6 +75,8 @@ const (
 	GiteaAdminSecretName = "gitea-admin-secret" //nolint:gosec
 	// GiteaServer default name
 	GiteaServerDefaultName = "vp-gitea-instance"
+	// Gitea Route Name
+	GiteaRouteName = "gitea-route"
 )
 
 // Default constants

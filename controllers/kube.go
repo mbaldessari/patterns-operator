@@ -20,14 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/client-go/route/clientset/versioned"
+	routeclient "github.com/openshift/client-go/route/clientset/versioned"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	kubeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"gopkg.in/yaml.v3"
@@ -120,13 +119,8 @@ func referSameObject(a, b *metav1.OwnerReference) bool {
 	return aGV.Group == bGV.Group && a.Kind == b.Kind && a.Name == b.Name
 }
 
-func getRoute(config *rest.Config, routeName, namespace string) (string, error) {
-	clientSet, err := versioned.NewForConfig(config)
-	if err != nil {
-		return "", err
-	}
-	routesClient := clientSet.RouteV1().Routes(namespace)
-	route, err := routesClient.Get(context.Background(), routeName, metav1.GetOptions{})
+func getRoute(routeClient routeclient.Interface, routeName, namespace string) (string, error) {
+	route, err := routeClient.RouteV1().Routes(namespace).Get(context.Background(), routeName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
