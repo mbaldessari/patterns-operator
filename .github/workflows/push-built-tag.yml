@@ -74,5 +74,6 @@ jobs:
       - name: Update bundle
         run: |-
           set -e
-          CHANNELS=fast USE_IMAGE_DIGESTS=true make bundle
+          export VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
+          VERSION=${VERSION} CHANNELS=fast USE_IMAGE_DIGESTS=true make bundle
           git diff
