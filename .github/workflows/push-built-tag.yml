@@ -9,6 +9,9 @@ jobs:
   build_and_push_image:
     name: Build and push pattern-operator image to quay.io
     runs-on: ubuntu-latest
+  env:
+    # https://github.com/operator-framework/operator-sdk/releases/download/v1.30.0/operator-sdk_linux_amd64
+    OPERATOR_SDK_VERSION: v1.30.0
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +39,13 @@ jobs:
             echo "Erroring out due to missing secrets"
             exit 1
           fi
+
+      - name: Install Operator sdk
+        run: |
+          set -e
+          curl -sL -o /tmp/operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/v1.30.0/operator-sdk_linux_amd64
+          chmod +x /tmp/operator-sdk
+          cp ./tmp/operator-sdk /usr/local/bin/
 
       - name: Build container and push it to quay.io
         env:
