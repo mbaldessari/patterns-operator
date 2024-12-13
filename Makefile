@@ -142,7 +142,7 @@ build: apikey generate fmt vet ## Build manager binary.
 .PHONY: clean
 clean: ## Remove build artifacts and downloaded tools
 	find bin/ -exec chmod +w "{}" \;
-	rm -rf ./manager ./bin/*
+	rm -rf ./manager ./bin/* catalog/catalog.yaml config/samples/pattern-catalog-*.yaml
 
 .PHONY: run
 run: apikey manifests generate fmt vet ## Run a controller from your host.
