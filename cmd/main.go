@@ -39,8 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	argov1beta1api "github.com/argoproj-labs/argocd-operator/api/v1beta1"
 	gitopsv1alpha1 "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
@@ -66,11 +66,11 @@ func init() {
 
 func main() {
 	var metricsAddr string
-    var secureMetrics bool
+	var secureMetrics bool
 	var enableLeaderElection bool
 	var probeAddr string
-    var enableHTTP2 bool
-    var tlsOpts []func(*tls.Config)
+	var enableHTTP2 bool
+	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -89,7 +89,6 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
@@ -100,13 +99,13 @@ func main() {
 		setupLog.Info("disabling http/2")
 		c.NextProtos = []string{"http/1.1"}
 	}
-    if !enableHTTP2 {
-    tlsOpts = append(tlsOpts, disableHTTP2)
-}
+	if !enableHTTP2 {
+		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
 
-    webhookServer := webhook.NewServer(webhook.Options{
-        TLSOpts: tlsOpts,
-    })
+	webhookServer := webhook.NewServer(webhook.Options{
+		TLSOpts: tlsOpts,
+	})
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
 	// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/server
@@ -117,16 +116,16 @@ func main() {
 		TLSOpts:       tlsOpts,
 	}
 	if secureMetrics {
-	    // FilterProvider is used to protect the metrics endpoint with authn/authz.
-	    // These configurations ensure that only authorized users and service accounts
-	    // can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
+		// FilterProvider is used to protect the metrics endpoint with authn/authz.
+		// These configurations ensure that only authorized users and service accounts
+		// can access the metrics endpoint. The RBAC are configured in 'config/rbac/kustomization.yaml'. More info:
 		// https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/metrics/filters#WithAuthenticationAndAuthorization
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 
 		// TODO(user): If CertDir, CertName, and KeyName are not specified, controller-runtime will automatically
 		// generate self-signed certificates for the metrics server. While convenient for development and testing,
 		// this setup is not recommended for production.
-    }
+	}
 
 	printVersion()
 
@@ -137,9 +136,9 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsServerOptions,
-        WebhookServer: webhookServer,
+		Scheme:                 scheme,
+		Metrics:                metricsServerOptions,
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "f2850479.hybrid-cloud-patterns.io",
@@ -155,7 +154,7 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-    })
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
