@@ -28,15 +28,15 @@
 # schema: olm.bundle
 # image: quay.io/youruser/patterns-operator-bundle:v0.0.13
 #
-schema: olm.package
-name: patterns-operator
-defaultChannel: fast
----
-schema: olm.channel
-package: patterns-operator
-name: fast
+schema: olm.template.basic
 entries:
-- name: patterns-operator.v$VERSION
----
-schema: olm.bundle
-image: $BUNDLE_IMG
+  - schema: olm.package
+    name: patterns-operator
+    defaultChannel: fast
+  - schema: olm.channel
+    package: patterns-operator
+    name: fast
+    entries:
+      - name: patterns-operator.v$VERSION
+  - schema: olm.bundle
+    image: $BUNDLE_IMG
