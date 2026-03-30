@@ -39,6 +39,7 @@ import (
 	argoapi "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	argoclient "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	api "github.com/hybrid-cloud-patterns/patterns-operator/api/v1alpha1"
+	"github.com/hybrid-cloud-patterns/patterns-operator/pkg/values"
 	routev1 "github.com/openshift/api/route/v1"
 )
 
@@ -671,44 +672,16 @@ func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
 }
 
 func convertArgoHelmParametersToMap(params []argoapi.HelmParameter) map[string]any {
-	result := make(map[string]any)
-
+	flat := make(map[string]string, len(params))
 	for _, p := range params {
-		keys := strings.Split(p.Name, ".")
-		lastKeyIndex := len(keys) - 1
-
-		currentMap := result
-		for i, key := range keys {
-			if i == lastKeyIndex {
-				currentMap[key] = p.Value
-			} else {
-				if _, ok := currentMap[key]; !ok {
-					currentMap[key] = make(map[string]any)
-				}
-				currentMap = currentMap[key].(map[string]any)
-			}
-		}
+		flat[p.Name] = p.Value
 	}
-	return result
+	return values.DotPathToNestedMap(flat)
 }
 
 func newApplicationValueFiles(p *api.Pattern, prefix string) []string {
-	files := []string{
-		fmt.Sprintf("%s/values-global.yaml", prefix),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Status.ClusterPlatform),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterPlatform, p.Status.ClusterVersion),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterPlatform, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterVersion, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Status.ClusterName),
-	}
-
-	for _, extra := range p.Spec.ExtraValueFiles {
-		extraValueFile := fmt.Sprintf("%s/%s", prefix, strings.TrimPrefix(extra, "/"))
-		log.Printf("Values file %q added", extraValueFile)
-		files = append(files, extraValueFile)
-	}
-	return files
+	return values.BuildValueFiles(p.Spec.ClusterGroupName, p.Status.ClusterPlatform,
+		p.Status.ClusterVersion, p.Status.ClusterName, p.Spec.ExtraValueFiles, prefix)
 }
 
 func newApplicationValues(p *api.Pattern) string {
@@ -728,51 +701,16 @@ func newApplicationValues(p *api.Pattern) string {
 //     will be converted to '/overrides/values-AWS.yaml'
 //  4. We return the list of templated strings back as an array
 func getSharedValueFiles(p *api.Pattern, prefix string) ([]string, error) {
-	gitDir := p.Status.LocalCheckoutPath
-	if _, err := os.Stat(gitDir); err != nil {
-		return nil, fmt.Errorf("%s path does not exist", gitDir)
+	input := values.ResolveInput{
+		LocalCheckoutPath: p.Status.LocalCheckoutPath,
+		ClusterGroupName:  p.Spec.ClusterGroupName,
+		ClusterPlatform:   p.Status.ClusterPlatform,
+		ClusterVersion:    p.Status.ClusterVersion,
+		ClusterName:       p.Status.ClusterName,
+		ExtraValueFiles:   p.Spec.ExtraValueFiles,
+		TemplateValues:    convertArgoHelmParametersToMap(newApplicationParameters(p)),
 	}
-
-	valueFiles := newApplicationValueFiles(p, gitDir)
-
-	helmValues, err := mergeHelmValues(valueFiles...)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch value files: %s", err)
-	}
-	sharedValueFiles := getClusterGroupValue("sharedValueFiles", helmValues)
-	if sharedValueFiles == nil {
-		return nil, nil
-	}
-
-	// Check if s is of type []interface{}
-	val, ok := sharedValueFiles.([]any)
-	if !ok {
-		return nil, fmt.Errorf("could not make a list out of sharedValueFiles: %v", sharedValueFiles)
-	}
-
-	// Convert each element of slice to a string
-	stringSlice := make([]string, len(val))
-	for i, v := range val {
-		str, ok := v.(string)
-		if !ok {
-			return nil, fmt.Errorf("type assertion failed at index %d: Not a string", i)
-		}
-		valueMap := convertArgoHelmParametersToMap(newApplicationParameters(p))
-		templatedString, err := helmTpl(str, valueFiles, valueMap)
-
-		// we only log an error, but try to keep going
-		if err != nil {
-			log.Printf("Failed to render templated string %s: %v", str, err)
-			continue
-		}
-		if strings.HasPrefix(templatedString, "/") {
-			stringSlice[i] = fmt.Sprintf("%s%s", prefix, templatedString)
-		} else {
-			stringSlice[i] = fmt.Sprintf("%s/%s", prefix, templatedString)
-		}
-	}
-
-	return stringSlice, nil
+	return values.ResolveSharedValueFiles(input, prefix)
 }
 
 func commonSyncPolicy(p *api.Pattern) *argoapi.SyncPolicy {
