@@ -69,13 +69,13 @@ IMAGE_TAG_BASE ?= $(UPLOADREGISTRY)/$(OPERATOR_NAME)-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
+export IMG ?= $(IMAGE_TAG_BASE):$(VERSION)
 OPERATOR_IMG ?= $(OPERATOR_NAME)-operator:$(VERSION)
 
 # always release the console with the same tag as the operator and the other way around!
 # Image base URL of the console plugin
 CONSOLE_PLUGIN_IMAGE_BASE ?= $(IMAGE_TAG_BASE)-console
-CONSOLE_PLUGIN_IMAGE ?= $(CONSOLE_PLUGIN_IMAGE_BASE):$(VERSION)
+export CONSOLE_PLUGIN_IMAGE ?= $(CONSOLE_PLUGIN_IMAGE_BASE):$(VERSION)
 CONSOLE_PLUGIN_DOCKERFILE ?= console-plugin.Dockerfile
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -306,9 +306,9 @@ endef
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	cd config/console-plugin && $(KUSTOMIZE) edit set image console-plugin=$(CONSOLE_PLUGIN_IMAGE)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	#cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	#cd config/console-plugin && $(KUSTOMIZE) edit set image console-plugin=$(CONSOLE_PLUGIN_IMAGE)
+	$(KUSTOMIZE) build config/manifests | envsubst | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(MAKE) bundle-fixes bundle-date
 	./hack/set_openshift_minimum_version.sh
 	$(OPERATOR_SDK) bundle validate ./bundle
