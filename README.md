@@ -40,24 +40,27 @@ Deletion is protected by a validating webhook. Without `patterns.gitops.hybrid-c
 **Recommended flow:** set the annotation, then delete:
 
 ```
-oc annotate -f config/samples/gitops_v1alpha1_pattern.yaml patterns.gitops.hybrid-cloud-patterns.io/prune='true'
+oc annotate -f config/samples/gitops_v1alpha1_pattern.yaml patterns.gitops.hybrid-cloud-patterns.io/prune='everything'
 oc delete -f config/samples/gitops_v1alpha1_pattern.yaml
 ```
 
 If you already tried `oc delete` without the annotation, add the annotation and retry the delete:
 
 ```
-oc annotate patterns <pattern-name> -n <namespace> patterns.gitops.hybrid-cloud-patterns.io/prune='true'
+oc annotate patterns <pattern-name> -n <namespace> patterns.gitops.hybrid-cloud-patterns.io/prune='everything'
 oc delete patterns <pattern-name> -n <namespace>
 ```
 
-With `prune: "true"`, deleting the `Pattern` also removes the following resources (after the controller runs its phased cleanup):
+The `prune` annotation accepts the following values:
 
-- The top-level application of the hub cluster.
-- The child applications of the hub cluster.
-- The top-level application of the spoke clusters.
-- The child applications of the spoke clusters.
-- The `ManagedCluster` instances (excluding the `local-cluster`).
+- **`everything`** — full cleanup. Removes the following resources (after the controller runs its phased cleanup):
+  - The top-level application of the hub cluster.
+  - The child applications of the hub cluster.
+  - The top-level application of the spoke clusters.
+  - The child applications of the spoke clusters.
+  - The `ManagedCluster` instances (excluding the `local-cluster`).
+- **`argo`** — removes all ArgoCD applications (hub and spoke) but leaves `ManagedCluster` instances intact. The ACM application (sourced from `https://charts.validatedpatterns.io/` with chart `acm`) is also skipped, since it cannot be removed while managed clusters still exist.
+- **`none`** — removes only the Pattern CR with no cleanup of dependent resources.
 
 **NOTE:** The GitOps Operator `Subscription` and the main `ArgoCD` instance will not be removed and must be removed manually.
 

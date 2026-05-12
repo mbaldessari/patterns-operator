@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -90,8 +89,8 @@ func (r *PatternValidator) ValidateDelete(_ context.Context, obj runtime.Object)
 	}
 	patternlog.Info("validate delete", "name", p.Name)
 
-	if !strings.EqualFold(p.Annotations[PruneAnnotation], "true") {
-		return nil, fmt.Errorf("deletion denied: set annotation %s=\"true\" on %s/%s before deleting",
+	if _, ok := ParsePruneAnnotation(p.Annotations); !ok {
+		return nil, fmt.Errorf("deletion denied: set annotation %s to one of \"everything\", \"argo\", or \"none\" on %s/%s before deleting",
 			PruneAnnotation, p.Namespace, p.Name)
 	}
 

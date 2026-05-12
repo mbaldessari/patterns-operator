@@ -1333,3 +1333,16 @@ func getChildApplications(client argoclient.Interface, parentApp *argoapi.Applic
 	}
 	return result, nil
 }
+
+func isACMApplication(app *argoapi.Application) bool {
+	if app.Spec.Source != nil && app.Spec.Source.Chart == "acm" &&
+		app.Spec.Source.RepoURL == "https://charts.validatedpatterns.io/" {
+		return true
+	}
+	for _, s := range app.Spec.Sources {
+		if s.Chart == "acm" && s.RepoURL == "https://charts.validatedpatterns.io/" {
+			return true
+		}
+	}
+	return false
+}

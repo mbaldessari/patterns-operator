@@ -707,31 +707,40 @@ func (r *PatternReconciler) deleteSpokeApps(targetApp, app *argoapi.Application,
 	return nil
 }
 
-func (r *PatternReconciler) deleteHubApps(targetApp, app *argoapi.Application, namespace string) error {
+func (r *PatternReconciler) deleteHubApps(targetApp, app *argoapi.Application, namespace string, pruneMode api.PruneMode) error {
 	log.Printf("Deletion phase: %s - deleting child apps from hub", api.DeleteHubChildApps)
 
-	childApps, err := getChildApplications(r.argoClient, app)
+	allChildApps, err := getChildApplications(r.argoClient, app)
 	if err != nil {
 		return fmt.Errorf("failed to get child applications: %w", err)
+	}
+
+	var childApps []argoapi.Application
+	for _, child := range allChildApps { //nolint:gocritic // rangeValCopy: each iteration copies 992 bytes
+		if pruneMode == api.PruneArgo && isACMApplication(&child) {
+			log.Printf("Skipping ACM application %q (prune mode is 'argo')", child.Name)
+			continue
+		}
+		childApps = append(childApps, child)
 	}
 
 	if len(childApps) == 0 {
 		return nil
 	}
-	// Delete managed clusters (excluding local-cluster)
-	// These must be removed before hub deletion can proceed because ACM won't delete properly if they exist
-	// we do not care about the error, since we might be on a standalone cluster
-	managedClusters, _ := r.listManagedClusters(context.Background())
 
-	if len(managedClusters) > 0 {
-		deletedCount, err := r.deleteManagedClusters(context.TODO())
-		if err != nil {
-			return fmt.Errorf("failed to delete managed clusters: %w", err)
-		}
+	if pruneMode == api.PruneEverything {
+		managedClusters, _ := r.listManagedClusters(context.Background())
 
-		if deletedCount > 0 {
-			log.Printf("Deleted %d managed cluster(s), waiting for them to be fully removed", deletedCount)
-			return fmt.Errorf("deleted %d managed cluster(s), waiting for removal to complete before proceeding with hub deletion", deletedCount)
+		if len(managedClusters) > 0 {
+			deletedCount, err := r.deleteManagedClusters(context.TODO())
+			if err != nil {
+				return fmt.Errorf("failed to delete managed clusters: %w", err)
+			}
+
+			if deletedCount > 0 {
+				log.Printf("Deleted %d managed cluster(s), waiting for them to be fully removed", deletedCount)
+				return fmt.Errorf("deleted %d managed cluster(s), waiting for removal to complete before proceeding with hub deletion", deletedCount)
+			}
 		}
 	}
 
@@ -754,8 +763,14 @@ func (r *PatternReconciler) deleteHubApps(targetApp, app *argoapi.Application, n
 func (r *PatternReconciler) finalizeObject(instance *api.Pattern) error {
 	log.Printf("Finalizing pattern object")
 
+	pruneMode, _ := api.ParsePruneAnnotation(instance.Annotations)
+	if pruneMode == api.PruneNone {
+		log.Printf("Prune mode is 'none', skipping cleanup")
+		return nil
+	}
+
 	// The object is being deleted and, if prune is enabled, we want to delete all the dependent objects in cascade
-	if strings.EqualFold(instance.Annotations[api.PruneAnnotation], "true") &&
+	if (pruneMode == api.PruneEverything || pruneMode == api.PruneArgo) &&
 		(controllerutil.ContainsFinalizer(instance, api.PatternFinalizer) || controllerutil.ContainsFinalizer(instance, metav1.FinalizerOrphanDependents)) {
 		// Prepare the app for cascaded deletion
 		qualifiedInstance, err := r.applyDefaults(instance)
@@ -851,7 +866,7 @@ func (r *PatternReconciler) finalizeObject(instance *api.Pattern) error {
 
 		// Phase 3: Delete applications from hub
 		if qualifiedInstance.Status.DeletionPhase == api.DeleteHubChildApps {
-			if err := r.deleteHubApps(targetApp, app, ns); err != nil {
+			if err := r.deleteHubApps(targetApp, app, ns, pruneMode); err != nil {
 				return err
 			}
 

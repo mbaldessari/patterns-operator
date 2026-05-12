@@ -17,15 +17,41 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	// NodeMaintenanceFinalizer is a finalizer for a NodeMaintenance CR deletion
 	PatternFinalizer string = "foregroundDeletePattern"
 	PruneAnnotation  string = "patterns.gitops.hybrid-cloud-patterns.io/prune"
 )
+
+type PruneMode string
+
+const (
+	PruneEverything PruneMode = "everything"
+	PruneArgo       PruneMode = "argo"
+	PruneNone       PruneMode = "none"
+)
+
+func ParsePruneAnnotation(annotations map[string]string) (PruneMode, bool) {
+	val, ok := annotations[PruneAnnotation]
+	if !ok {
+		return "", false
+	}
+	switch PruneMode(strings.ToLower(val)) {
+	case PruneEverything:
+		return PruneEverything, true
+	case PruneArgo:
+		return PruneArgo, true
+	case PruneNone:
+		return PruneNone, true
+	default:
+		return "", false
+	}
+}
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 //  https://pkg.go.dev/encoding/json#Marshal
