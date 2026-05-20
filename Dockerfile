@@ -16,6 +16,7 @@ COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY version/ version/
 COPY internal/controller/ internal/controller/
+COPY pkg/ pkg/
 COPY hack/ hack/
 COPY .git/ .git/
 COPY LICENSE /licenses/
