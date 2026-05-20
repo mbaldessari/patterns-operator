@@ -131,6 +131,14 @@ func TestGetClusterGroupValue(t *testing.T) {
 			t.Errorf("expected nil, got %v", result)
 		}
 	})
+
+	t.Run("returns nil when clusterGroup is not a map", func(t *testing.T) {
+		values := map[string]any{"clusterGroup": "not-a-map"}
+		result := GetClusterGroupValue("name", values)
+		if result != nil {
+			t.Errorf("expected nil, got %v", result)
+		}
+	})
 }
 
 func TestHelmTpl(t *testing.T) {

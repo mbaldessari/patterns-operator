@@ -76,9 +76,10 @@ var _ = Describe("Helm Values", func() {
 		})
 
 		Context("when clusterGroup is not a map", func() {
-			It("should panic", func() {
+			It("should return nil", func() {
 				values["clusterGroup"] = "notAMap"
-				Expect(func() { getClusterGroupValue("desiredKey", values) }).To(Panic())
+				result := getClusterGroupValue("desiredKey", values)
+				Expect(result).To(BeNil())
 			})
 		})
 	})

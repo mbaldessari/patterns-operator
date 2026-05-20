@@ -60,6 +60,7 @@ func BuildValueFiles(clusterGroupName, clusterPlatform, clusterVersion, clusterN
 
 	for _, extra := range extraValueFiles {
 		extraValueFile := fmt.Sprintf("%s/%s", prefix, strings.TrimPrefix(extra, "/"))
+		log.Printf("Values file %q added", extraValueFile)
 		files = append(files, extraValueFile)
 	}
 	return files
@@ -89,14 +90,18 @@ func MergeHelmValues(files ...string) (map[string]any, error) {
 }
 
 // GetClusterGroupValue extracts a key from the "clusterGroup" section of
-// merged Helm values. Returns nil if the clusterGroup section or key is not found.
+// merged Helm values. Returns nil if the clusterGroup section is missing,
+// is not a map, or does not contain the key.
 func GetClusterGroupValue(key string, values map[string]any) any {
 	clusterGroup, hasClusterGroup := values["clusterGroup"]
 	if !hasClusterGroup {
 		return nil
 	}
 
-	clusterGroupMap := clusterGroup.(map[string]any)
+	clusterGroupMap, ok := clusterGroup.(map[string]any)
+	if !ok {
+		return nil
+	}
 	v, hasKey := clusterGroupMap[key]
 	if hasKey {
 		return v
