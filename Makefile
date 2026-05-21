@@ -152,10 +152,14 @@ apikey: ## Generates an empty apikey file if one does not exist already
 build: apikey generate fmt vet ## Build manager binary.
 	GOOS=${GOOS} GOARCH=${GOARCH} hack/build.sh
 
+.PHONY: resolve-values
+resolve-values: ## Build resolve-values CLI tool.
+	GOFLAGS=-mod=vendor CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o resolve-values ./cmd/resolve-values/
+
 .PHONY: clean
 clean: ## Remove build artifacts and downloaded tools
 	find bin/ -exec chmod +w "{}" \;
-	rm -rf ./manager ./bin/*
+	rm -rf ./manager ./resolve-values ./bin/*
 
 .PHONY: run
 run: apikey manifests generate fmt vet ## Run a controller from your host.

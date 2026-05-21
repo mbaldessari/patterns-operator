@@ -36,3 +36,4 @@ govulncheck.results
 /database
 
 *Dockerfile
+/resolve-values
