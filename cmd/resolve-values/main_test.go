@@ -212,6 +212,108 @@ func TestRunMultipleSharedValueFiles(t *testing.T) {
 	}
 }
 
+func TestRenderValueFiles(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"),
+		"clusterGroup:\n  name: hub\n  sharedValueFiles:\n    - '/overrides/values-{{ $.Values.global.clusterPlatform }}.yaml'\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"--cluster-platform", "AWS",
+		"-render-value-files",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+		t.Errorf("missing rendered header for values-global.yaml:\n%s", out)
+	}
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-hub.yaml")+" ---") {
+		t.Errorf("missing rendered header for values-hub.yaml:\n%s", out)
+	}
+	if !strings.Contains(out, "'/overrides/values-AWS.yaml'") {
+		t.Errorf("expected template to be rendered with AWS:\n%s", out)
+	}
+}
+
+func TestRenderValueFilesSkipsMissing(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"--cluster-platform", "AWS",
+		"-render-value-files",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+		t.Errorf("missing rendered header for values-global.yaml:\n%s", out)
+	}
+	if strings.Contains(out, "values-hub.yaml ---") {
+		t.Errorf("should not render missing values-hub.yaml:\n%s", out)
+	}
+}
+
+func TestRenderValueFilesErrorOnMissingVar(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"),
+		"platform: '{{ $.Values.global.clusterPlatform }}'\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"--cluster-group", "hub",
+		"-render-value-files",
+	}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for missing variable, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "Error rendering") {
+		t.Errorf("expected rendering error on stderr, got: %s", stderr.String())
+	}
+}
+
+func TestRenderValueFilesMultiple(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"), "clusterGroup:\n  name: hub\n")
+	writeFile(t, filepath.Join(td, "values-AWS.yaml"), "aws:\n  region: us-east-1\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"--cluster-platform", "AWS",
+		"-render-value-files",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+		t.Errorf("missing values-global.yaml rendered output:\n%s", out)
+	}
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-hub.yaml")+" ---") {
+		t.Errorf("missing values-hub.yaml rendered output:\n%s", out)
+	}
+	if !strings.Contains(out, "--- "+filepath.Join(td, "values-AWS.yaml")+" ---") {
+		t.Errorf("missing values-AWS.yaml rendered output:\n%s", out)
+	}
+	if !strings.Contains(out, "region: us-east-1") {
+		t.Errorf("expected AWS content in rendered output:\n%s", out)
+	}
+}
+
 func TestRunNonHubClusterGroup(t *testing.T) {
 	td := t.TempDir()
 	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\n")

@@ -175,6 +175,64 @@ func HelmTpl(templateString string, valueFiles []string, values map[string]any) 
 	return rendered, nil
 }
 
+// HelmTplStrict is like HelmTpl but uses strict mode: rendering fails if a
+// template references a value that was not provided.
+func HelmTplStrict(templateString string, valueFiles []string, values map[string]any) (string, error) {
+	fakeChart := &chart.Chart{
+		Metadata: &chart.Metadata{
+			APIVersion: "v2",
+			Name:       "fake",
+			Version:    "0.1.0",
+		},
+		Templates: []*chart.File{
+			{
+				Name: "templates/template.tpl",
+				Data: []byte(templateString),
+			},
+		},
+	}
+
+	mergedValues := make(map[string]any)
+	mergedValues = chartutil.CoalesceTables(values, mergedValues)
+	for _, fileName := range valueFiles {
+		fname := filepath.Clean(fileName)
+		if _, err := os.Stat(fname); os.IsNotExist(err) {
+			continue
+		}
+		fileValues, err := chartutil.ReadValuesFile(fname)
+		if err != nil {
+			return "", fmt.Errorf("error reading values file %s: %w", fileName, err)
+		}
+		mergedValues = chartutil.CoalesceTables(fileValues, mergedValues)
+	}
+
+	mergedValues = chartutil.CoalesceTables(mergedValues, values)
+
+	options := chartutil.ReleaseOptions{
+		Name:      "fake-release",
+		Namespace: "default",
+		IsInstall: true,
+		IsUpgrade: false,
+	}
+	valuesToRender, err := chartutil.ToRenderValues(fakeChart, mergedValues, options, chartutil.DefaultCapabilities)
+	if err != nil {
+		return "", fmt.Errorf("error preparing render values: %w", err)
+	}
+
+	e := engine.Engine{Strict: true}
+	renderedTemplates, err := e.Render(fakeChart, valuesToRender)
+	if err != nil {
+		return "", fmt.Errorf("error rendering template: %w", err)
+	}
+
+	rendered, ok := renderedTemplates["fake/templates/template.tpl"]
+	if !ok {
+		return "", fmt.Errorf("rendered template not found")
+	}
+
+	return rendered, nil
+}
+
 // CountApplicationsAndSets inspects an "applications" map from Helm values
 // and returns counts of regular applications vs ApplicationSets.
 func CountApplicationsAndSets(a any) (appCount, appSetsCount int) {

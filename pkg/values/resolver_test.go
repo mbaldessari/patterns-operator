@@ -179,6 +179,33 @@ func TestHelmTpl(t *testing.T) {
 	})
 }
 
+func TestHelmTplStrict(t *testing.T) {
+	t.Run("renders with all values provided", func(t *testing.T) {
+		rendered, err := HelmTplStrict("platform: {{ .Values.global.clusterPlatform }}", nil,
+			map[string]any{"global": map[string]any{"clusterPlatform": "AWS"}})
+		assertNoError(t, err)
+		if rendered != "platform: AWS" {
+			t.Errorf("expected 'platform: AWS', got %q", rendered)
+		}
+	})
+
+	t.Run("errors on missing value", func(t *testing.T) {
+		_, err := HelmTplStrict("platform: {{ .Values.global.clusterPlatform }}", nil,
+			map[string]any{"global": map[string]any{}})
+		if err == nil {
+			t.Fatal("expected error for missing value in strict mode")
+		}
+	})
+
+	t.Run("static text renders without error", func(t *testing.T) {
+		rendered, err := HelmTplStrict("no templates here", nil, map[string]any{})
+		assertNoError(t, err)
+		if rendered != "no templates here" {
+			t.Errorf("expected 'no templates here', got %q", rendered)
+		}
+	})
+}
+
 func TestCountApplicationsAndSets(t *testing.T) {
 	t.Run("nil returns 0,0", func(t *testing.T) {
 		apps, appsets := CountApplicationsAndSets(nil)

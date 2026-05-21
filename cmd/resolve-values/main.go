@@ -24,7 +24,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	clusterPlatform := fs.String("cluster-platform", "", "Cluster platform (e.g. AWS, Azure)")
 	clusterVersion := fs.String("cluster-version", "", "Cluster version (e.g. 4.12)")
 	clusterName := fs.String("cluster-name", "", "Cluster name")
+	hubClusterDomain := fs.String("hub-cluster-domain", "", "Hub cluster application domain (e.g. apps.hub.example.com)")
+	localClusterDomain := fs.String("local-cluster-domain", "", "Local cluster application domain")
+	clusterID := fs.String("cluster-id", "", "Cluster ID")
 	extraValueFiles := fs.String("extra-value-files", "", "Comma-separated extra value file paths")
+	renderValueFiles := fs.Bool("render-value-files", false, "Render and print existing value files with cluster parameters substituted")
 
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -116,5 +120,63 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "  %s\n", f)
 		}
 	}
+
+	if *renderValueFiles {
+		renderValues := buildRenderValues(*clusterGroup, *clusterPlatform, *clusterVersion,
+			*clusterName, *hubClusterDomain, *localClusterDomain, *clusterID)
+
+		allFiles := append(baseFiles, sharedFiles...)
+		for _, f := range allFiles {
+			if _, err := os.Stat(f); os.IsNotExist(err) {
+				continue
+			}
+			content, err := os.ReadFile(f)
+			if err != nil {
+				fmt.Fprintf(stderr, "Error reading %s: %v\n", f, err)
+				return 1
+			}
+			rendered, err := values.HelmTplStrict(string(content), nil, renderValues)
+			if err != nil {
+				fmt.Fprintf(stderr, "Error rendering %s: %v\n", f, err)
+				return 1
+			}
+			fmt.Fprintf(stdout, "\n--- %s ---\n%s", f, rendered)
+		}
+	}
+
 	return 0
+}
+
+func buildRenderValues(clusterGroup, clusterPlatform, clusterVersion,
+	clusterName, hubClusterDomain, localClusterDomain, clusterID string) map[string]any {
+	global := make(map[string]any)
+	if clusterPlatform != "" {
+		global["clusterPlatform"] = clusterPlatform
+	}
+	if clusterVersion != "" {
+		global["clusterVersion"] = clusterVersion
+	}
+	if clusterName != "" {
+		global["clusterDomain"] = clusterName
+		global["localClusterName"] = clusterName
+	}
+	if hubClusterDomain != "" {
+		global["hubClusterDomain"] = hubClusterDomain
+	}
+	if localClusterDomain != "" {
+		global["localClusterDomain"] = localClusterDomain
+	}
+	if clusterID != "" {
+		global["clusterID"] = clusterID
+	}
+
+	result := map[string]any{
+		"global": global,
+	}
+	if clusterGroup != "" {
+		result["clusterGroup"] = map[string]any{
+			"name": clusterGroup,
+		}
+	}
+	return result
 }
