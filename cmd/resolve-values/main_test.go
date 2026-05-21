@@ -432,3 +432,134 @@ func TestRunNonHubClusterGroup(t *testing.T) {
 		t.Errorf("should not contain hub value file:\n%s", out)
 	}
 }
+
+func TestRunWithManagedCluster(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"),
+		"clusterGroup:\n  name: hub\n  managedClusterGroups:\n    region1:\n      name: group-one\n")
+	writeFile(t, filepath.Join(td, "values-group-one.yaml"), "clusterGroup:\n  name: group-one\n")
+
+	chartDir := filepath.Join(td, "charts", "spokeapp")
+	os.MkdirAll(filepath.Join(chartDir, "templates"), 0755)
+	writeFile(t, filepath.Join(chartDir, "Chart.yaml"), "apiVersion: v2\nname: spokeapp\nversion: 0.1.0\n")
+	writeFile(t, filepath.Join(chartDir, "values.yaml"), "replicas: 2\n")
+	writeFile(t, filepath.Join(chartDir, "templates", "deploy.yaml"),
+		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: spokeapp\nspec:\n  replicas: {{ .Values.replicas }}\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+		"-with-managedcluster", "region1",
+		"-spoke-cluster-name", "my-spoke",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Managed cluster: region1 (group-one), spoke: my-spoke") {
+		t.Errorf("missing managed cluster header:\n%s", out)
+	}
+	if !strings.Contains(out, "values-group-one.yaml") {
+		t.Errorf("expected spoke value file in output:\n%s", out)
+	}
+	if !strings.Contains(out, "spoke: spokeapp") {
+		t.Errorf("expected spoke chart rendering:\n%s", out)
+	}
+	if !strings.Contains(out, "replicas: 2") {
+		t.Errorf("expected spoke chart rendered content:\n%s", out)
+	}
+}
+
+func TestRunManagedClusterRequiresRenderHelm(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-with-managedcluster", "region1",
+		"-spoke-cluster-name", "my-spoke",
+	}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "requires -render-helm") {
+		t.Errorf("expected requires render-helm error, got: %s", stderr.String())
+	}
+}
+
+func TestRunManagedClusterRequiresSpokeClusterName(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+		"-with-managedcluster", "region1",
+	}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "spoke-cluster-name is required") {
+		t.Errorf("expected spoke-cluster-name required error, got: %s", stderr.String())
+	}
+}
+
+func TestRunManagedClusterByName(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"),
+		"clusterGroup:\n  name: hub\n  managedClusterGroups:\n    exampleRegion:\n      name: group-one\n")
+	writeFile(t, filepath.Join(td, "values-group-one.yaml"), "clusterGroup:\n  name: group-one\n")
+
+	chartDir := filepath.Join(td, "charts", "spokeapp")
+	os.MkdirAll(filepath.Join(chartDir, "templates"), 0755)
+	writeFile(t, filepath.Join(chartDir, "Chart.yaml"), "apiVersion: v2\nname: spokeapp\nversion: 0.1.0\n")
+	writeFile(t, filepath.Join(chartDir, "values.yaml"), "replicas: 3\n")
+	writeFile(t, filepath.Join(chartDir, "templates", "deploy.yaml"),
+		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: spokeapp\nspec:\n  replicas: {{ .Values.replicas }}\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+		"-with-managedcluster", "group-one",
+		"-spoke-cluster-name", "my-spoke",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Managed cluster: exampleRegion (group-one), spoke: my-spoke") {
+		t.Errorf("expected header with key exampleRegion and name group-one:\n%s", out)
+	}
+	if !strings.Contains(out, "values-group-one.yaml") {
+		t.Errorf("expected spoke value file in output:\n%s", out)
+	}
+}
+
+func TestRunManagedClusterNotFound(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"), "clusterGroup:\n  name: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+		"-with-managedcluster", "nonexistent",
+		"-spoke-cluster-name", "my-spoke",
+	}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	errOut := stderr.String()
+	if !strings.Contains(errOut, "managedClusterGroups") {
+		t.Errorf("expected managedClusterGroups error, got: %s", errOut)
+	}
+}
