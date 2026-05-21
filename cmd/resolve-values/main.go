@@ -19,7 +19,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("resolve-values", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	repoPath := fs.String("path", ".", "Path to the patterns git repo checkout")
+	patternDir := fs.String("patterndir", "", "Path to the pattern's git repo checkout (required)")
 	clusterGroup := fs.String("cluster-group", "hub", "Cluster group name")
 	clusterPlatform := fs.String("cluster-platform", "", "Cluster platform (e.g. AWS, Azure)")
 	clusterVersion := fs.String("cluster-version", "", "Cluster version (e.g. 4.12)")
@@ -30,7 +30,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	absPath, err := filepath.Abs(*repoPath)
+	if *patternDir == "" {
+		fmt.Fprintln(stderr, "Error: --patterndir is required")
+		fs.Usage()
+		return 1
+	}
+
+	absPath, err := filepath.Abs(*patternDir)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error resolving path: %v\n", err)
 		return 1

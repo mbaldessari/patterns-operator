@@ -21,7 +21,7 @@ func TestRunDefaults(t *testing.T) {
 	writeFile(t, filepath.Join(td, "values-hub.yaml"), "clusterGroup:\n  name: hub\n")
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--path", td}, &stdout, &stderr)
+	code := run([]string{"--patterndir", td}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
 	}
@@ -52,7 +52,7 @@ func TestRunWithClusterParams(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
-		"--path", td,
+		"--patterndir", td,
 		"--cluster-group", "hub",
 		"--cluster-platform", "AWS",
 		"--cluster-version", "4.16",
@@ -82,7 +82,7 @@ func TestRunWithSharedValueFiles(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
-		"--path", td,
+		"--patterndir", td,
 		"--cluster-group", "hub",
 		"--cluster-platform", "AWS",
 	}, &stdout, &stderr)
@@ -106,7 +106,7 @@ func TestRunWithExtraValueFiles(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
-		"--path", td,
+		"--patterndir", td,
 		"--extra-value-files", "extra.yaml,another.yaml",
 	}, &stdout, &stderr)
 	if code != 0 {
@@ -122,9 +122,20 @@ func TestRunWithExtraValueFiles(t *testing.T) {
 	}
 }
 
+func TestRunMissingPatterndir(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--cluster-group", "hub"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "--patterndir is required") {
+		t.Errorf("expected gitdir required error on stderr, got: %s", stderr.String())
+	}
+}
+
 func TestRunNonexistentPath(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"--path", "/nonexistent/path"}, &stdout, &stderr)
+	code := run([]string{"--patterndir", "/nonexistent/path"}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("expected exit 1, got %d", code)
 	}
@@ -149,7 +160,7 @@ func TestRunMultipleSharedValueFiles(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
-		"--path", td,
+		"--patterndir", td,
 		"--cluster-group", "hub",
 		"--cluster-platform", "Azure",
 		"--cluster-version", "4.16",
@@ -174,7 +185,7 @@ func TestRunNonHubClusterGroup(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	code := run([]string{
-		"--path", td,
+		"--patterndir", td,
 		"--cluster-group", "group-one",
 		"--cluster-platform", "AWS",
 	}, &stdout, &stderr)
