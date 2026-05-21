@@ -17,7 +17,7 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestRunDefaults(t *testing.T) {
 	td := t.TempDir()
-	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\n")
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
 	writeFile(t, filepath.Join(td, "values-hub.yaml"), "clusterGroup:\n  name: hub\n")
 
 	var stdout, stderr bytes.Buffer
@@ -41,6 +41,40 @@ func TestRunDefaults(t *testing.T) {
 	}
 	if !strings.Contains(out, "No shared value files defined.") {
 		t.Error("expected 'No shared value files defined.' when none configured")
+	}
+}
+
+func TestRunClusterGroupFromGlobal(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: group-one\n")
+	writeFile(t, filepath.Join(td, "values-group-one.yaml"), "clusterGroup:\n  name: group-one\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--patterndir", td}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "values-group-one.yaml") {
+		t.Errorf("expected group-one value file from auto-detected cluster group:\n%s", out)
+	}
+	if strings.Contains(out, "values-hub.yaml") {
+		t.Errorf("should not contain hub when auto-detected group is group-one:\n%s", out)
+	}
+}
+
+func TestRunMissingClusterGroupName(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--patterndir", td}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "could not read main.clusterGroupName") {
+		t.Errorf("expected clusterGroupName error on stderr, got: %s", stderr.String())
 	}
 }
 
@@ -101,7 +135,7 @@ func TestRunWithSharedValueFiles(t *testing.T) {
 
 func TestRunWithExtraValueFiles(t *testing.T) {
 	td := t.TempDir()
-	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\n")
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
 	writeFile(t, filepath.Join(td, "extra.yaml"), "extra: value\n")
 
 	var stdout, stderr bytes.Buffer

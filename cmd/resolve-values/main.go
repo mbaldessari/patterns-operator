@@ -20,7 +20,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.SetOutput(stderr)
 
 	patternDir := fs.String("patterndir", "", "Path to the pattern's git repo checkout (required)")
-	clusterGroup := fs.String("cluster-group", "hub", "Cluster group name")
+	clusterGroup := fs.String("cluster-group", "", "Cluster group name (default: read from values-global.yaml)")
 	clusterPlatform := fs.String("cluster-platform", "", "Cluster platform (e.g. AWS, Azure)")
 	clusterVersion := fs.String("cluster-version", "", "Cluster version (e.g. 4.12)")
 	clusterName := fs.String("cluster-name", "", "Cluster name")
@@ -45,6 +45,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if _, err := os.Stat(absPath); err != nil {
 		fmt.Fprintf(stderr, "Path does not exist: %s\n", absPath)
 		return 1
+	}
+
+	if *clusterGroup == "" {
+		globalFile := filepath.Join(absPath, "values-global.yaml")
+		v, err := values.MergeHelmValues(globalFile)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error reading %s: %v\n", globalFile, err)
+			return 1
+		}
+		mainSection, _ := v["main"].(map[string]any)
+		if name, ok := mainSection["clusterGroupName"].(string); ok && name != "" {
+			*clusterGroup = name
+		} else {
+			fmt.Fprintln(stderr, "Error: could not read main.clusterGroupName from values-global.yaml; use --cluster-group")
+			return 1
+		}
 	}
 
 	var extras []string
