@@ -341,6 +341,71 @@ func TestRenderValueFilesStripsComments(t *testing.T) {
 	}
 }
 
+func TestRunRenderHelm(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+	writeFile(t, filepath.Join(td, "values-hub.yaml"), "clusterGroup:\n  name: hub\n")
+
+	chartDir := filepath.Join(td, "charts", "myapp")
+	os.MkdirAll(filepath.Join(chartDir, "templates"), 0755)
+	writeFile(t, filepath.Join(chartDir, "Chart.yaml"), "apiVersion: v2\nname: myapp\nversion: 0.1.0\n")
+	writeFile(t, filepath.Join(chartDir, "values.yaml"), "replicas: 1\n")
+	writeFile(t, filepath.Join(chartDir, "templates", "deploy.yaml"),
+		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: myapp\nspec:\n  replicas: {{ .Values.replicas }}\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "kind: Deployment") {
+		t.Errorf("expected rendered Deployment:\n%s", out)
+	}
+	if !strings.Contains(out, "replicas: 1") {
+		t.Errorf("expected replicas from values:\n%s", out)
+	}
+}
+
+func TestRunRenderHelmMutuallyExclusive(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-value-files",
+		"-render-helm",
+	}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected exit 1 for mutual exclusion, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "mutually exclusive") {
+		t.Errorf("expected mutual exclusion error, got: %s", stderr.String())
+	}
+}
+
+func TestRunRenderHelmNoCharts(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"-render-helm",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "No charts found.") {
+		t.Errorf("expected 'No charts found.' message:\n%s", stdout.String())
+	}
+}
+
 func TestRunNonHubClusterGroup(t *testing.T) {
 	td := t.TempDir()
 	writeFile(t, filepath.Join(td, "values-global.yaml"), "global:\n  pattern: test\n")

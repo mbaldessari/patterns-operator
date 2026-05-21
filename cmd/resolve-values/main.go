@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hybrid-cloud-patterns/patterns-operator/pkg/values"
+	"helm.sh/helm/v3/pkg/chartutil"
 )
 
 func main() {
@@ -29,8 +31,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 	clusterID := fs.String("cluster-id", "", "Cluster ID")
 	extraValueFiles := fs.String("extra-value-files", "", "Comma-separated extra value file paths")
 	renderValueFiles := fs.Bool("render-value-files", false, "Render and print existing value files with cluster parameters substituted")
+	renderHelm := fs.Bool("render-helm", false, "Find and render all Helm chart templates with merged values")
 
 	if err := fs.Parse(args); err != nil {
+		return 1
+	}
+
+	if *renderValueFiles && *renderHelm {
+		fmt.Fprintln(stderr, "Error: -render-value-files and -render-helm are mutually exclusive")
 		return 1
 	}
 
@@ -122,7 +130,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if *renderValueFiles {
-		renderValues := buildRenderValues(*clusterGroup, *clusterPlatform, *clusterVersion,
+		renderVals := buildRenderValues(*clusterGroup, *clusterPlatform, *clusterVersion,
 			*clusterName, *hubClusterDomain, *localClusterDomain, *clusterID)
 
 		allFiles := append(baseFiles, sharedFiles...)
@@ -135,23 +143,76 @@ func run(args []string, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "Error reading %s: %v\n", f, err)
 				return 1
 			}
-			rendered, err := values.HelmTplStrict(string(content), nil, renderValues)
+			rendered, err := values.HelmTplStrict(string(content), nil, renderVals)
 			if err != nil {
 				fmt.Fprintf(stderr, "Error rendering %s: %v\n", f, err)
 				return 1
 			}
 			fmt.Fprintf(stdout, "\n# %s\n", f)
-			for _, line := range strings.Split(rendered, "\n") {
-				trimmed := strings.TrimSpace(line)
-				if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			printStrippingComments(stdout, rendered)
+		}
+	}
+
+	if *renderHelm {
+		var existingFiles []string
+		for _, f := range append(baseFiles, sharedFiles...) {
+			if _, err := os.Stat(f); !os.IsNotExist(err) {
+				existingFiles = append(existingFiles, f)
+			}
+		}
+
+		mergedValues, err := values.MergeHelmValues(existingFiles...)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error merging value files: %v\n", err)
+			return 1
+		}
+		cliValues := buildRenderValues(*clusterGroup, *clusterPlatform, *clusterVersion,
+			*clusterName, *hubClusterDomain, *localClusterDomain, *clusterID)
+		mergedValues = chartutil.CoalesceTables(cliValues, mergedValues)
+
+		chartDirs, err := values.FindCharts(absPath)
+		if err != nil {
+			fmt.Fprintf(stderr, "Error finding charts: %v\n", err)
+			return 1
+		}
+		if len(chartDirs) == 0 {
+			fmt.Fprintln(stdout, "\nNo charts found.")
+			return 0
+		}
+
+		for _, chartDir := range chartDirs {
+			rendered, err := values.RenderChart(chartDir, mergedValues)
+			if err != nil {
+				fmt.Fprintf(stderr, "Error rendering chart %s: %v\n", chartDir, err)
+				return 1
+			}
+			names := make([]string, 0, len(rendered))
+			for name := range rendered {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				content := rendered[name]
+				if strings.TrimSpace(content) == "" {
 					continue
 				}
-				fmt.Fprintln(stdout, line)
+				fmt.Fprintf(stdout, "\n# %s\n", name)
+				printStrippingComments(stdout, content)
 			}
 		}
 	}
 
 	return 0
+}
+
+func printStrippingComments(w io.Writer, content string) {
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		fmt.Fprintln(w, line)
+	}
 }
 
 func buildRenderValues(clusterGroup, clusterPlatform, clusterVersion,

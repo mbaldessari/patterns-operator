@@ -3,6 +3,7 @@ package values
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -395,6 +396,99 @@ func TestResolveSharedValueFiles(t *testing.T) {
 			t.Errorf("expected %q, got %q", expected, result[0])
 		}
 	})
+}
+
+func TestFindCharts(t *testing.T) {
+	td := t.TempDir()
+
+	t.Run("finds charts in subdirectories", func(t *testing.T) {
+		chart1 := filepath.Join(td, "charts", "app1")
+		chart2 := filepath.Join(td, "charts", "app2")
+		os.MkdirAll(chart1, 0755)
+		os.MkdirAll(chart2, 0755)
+		writeFile(t, filepath.Join(chart1, "Chart.yaml"), "apiVersion: v2\nname: app1\nversion: 0.1.0\n")
+		writeFile(t, filepath.Join(chart2, "Chart.yaml"), "apiVersion: v2\nname: app2\nversion: 0.1.0\n")
+
+		charts, err := FindCharts(td)
+		assertNoError(t, err)
+		if len(charts) != 2 {
+			t.Fatalf("expected 2 charts, got %d: %v", len(charts), charts)
+		}
+	})
+
+	t.Run("skips vendor directory", func(t *testing.T) {
+		vendorChart := filepath.Join(td, "vendor", "somechart")
+		os.MkdirAll(vendorChart, 0755)
+		writeFile(t, filepath.Join(vendorChart, "Chart.yaml"), "apiVersion: v2\nname: vendor\nversion: 0.1.0\n")
+
+		charts, err := FindCharts(td)
+		assertNoError(t, err)
+		for _, c := range charts {
+			if filepath.Base(c) == "somechart" {
+				t.Errorf("should skip vendor directory, found %s", c)
+			}
+		}
+	})
+
+	t.Run("empty directory returns nil", func(t *testing.T) {
+		empty := t.TempDir()
+		charts, err := FindCharts(empty)
+		assertNoError(t, err)
+		if len(charts) != 0 {
+			t.Errorf("expected no charts, got %v", charts)
+		}
+	})
+}
+
+func TestRenderChart(t *testing.T) {
+	t.Run("renders chart templates with values", func(t *testing.T) {
+		td := t.TempDir()
+		os.MkdirAll(filepath.Join(td, "templates"), 0755)
+		writeFile(t, filepath.Join(td, "Chart.yaml"), "apiVersion: v2\nname: test\nversion: 0.1.0\n")
+		writeFile(t, filepath.Join(td, "values.yaml"), "name: default\n")
+		writeFile(t, filepath.Join(td, "templates", "cm.yaml"),
+			"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ .Values.name }}\n")
+
+		rendered, err := RenderChart(td, map[string]any{"name": "override"})
+		assertNoError(t, err)
+		found := false
+		for _, content := range rendered {
+			if content != "" {
+				found = true
+				if !containsStr(content, "name: override") {
+					t.Errorf("expected rendered name 'override', got:\n%s", content)
+				}
+			}
+		}
+		if !found {
+			t.Error("no rendered templates found")
+		}
+	})
+
+	t.Run("errors on missing value in strict mode", func(t *testing.T) {
+		td := t.TempDir()
+		os.MkdirAll(filepath.Join(td, "templates"), 0755)
+		writeFile(t, filepath.Join(td, "Chart.yaml"), "apiVersion: v2\nname: test\nversion: 0.1.0\n")
+		writeFile(t, filepath.Join(td, "values.yaml"), "")
+		writeFile(t, filepath.Join(td, "templates", "cm.yaml"),
+			"value: {{ .Values.missing.key }}\n")
+
+		_, err := RenderChart(td, map[string]any{})
+		if err == nil {
+			t.Fatal("expected error for missing value in strict mode")
+		}
+	})
+
+	t.Run("errors on invalid chart path", func(t *testing.T) {
+		_, err := RenderChart("/nonexistent/chart", map[string]any{})
+		if err == nil {
+			t.Fatal("expected error for nonexistent chart")
+		}
+	})
+}
+
+func containsStr(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && strings.Contains(s, substr))
 }
 
 // Test helpers

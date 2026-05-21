@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
 )
@@ -356,4 +357,61 @@ func ResolveSharedValueFiles(input *ResolveInput, prefix string) ([]string, erro
 	}
 
 	return result, nil
+}
+
+// FindCharts walks a directory tree and returns the paths of all directories
+// that contain a Chart.yaml file. It skips vendor/, .git/, and common/ directories.
+func FindCharts(root string) ([]string, error) {
+	var charts []string
+	skipDirs := map[string]bool{"vendor": true, ".git": true, "common": true}
+
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() == "Chart.yaml" {
+			charts = append(charts, filepath.Dir(path))
+		}
+		return nil
+	})
+	return charts, err
+}
+
+// RenderChart loads a Helm chart from disk and renders its templates with the
+// given values. The chart's own values.yaml is used as a base, with vals
+// taking precedence. Uses strict mode so missing template variables cause an error.
+func RenderChart(chartPath string, vals map[string]any) (map[string]string, error) {
+	chrt, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, fmt.Errorf("error loading chart %s: %w", chartPath, err)
+	}
+
+	mergedValues, err := chartutil.CoalesceValues(chrt, vals)
+	if err != nil {
+		return nil, fmt.Errorf("error merging values for chart %s: %w", chartPath, err)
+	}
+
+	options := chartutil.ReleaseOptions{
+		Name:      chrt.Metadata.Name,
+		Namespace: "default",
+		IsInstall: true,
+	}
+	valuesToRender, err := chartutil.ToRenderValues(chrt, mergedValues, options, chartutil.DefaultCapabilities)
+	if err != nil {
+		return nil, fmt.Errorf("error preparing render values for chart %s: %w", chartPath, err)
+	}
+
+	e := engine.Engine{Strict: true}
+	rendered, err := e.Render(chrt, valuesToRender)
+	if err != nil {
+		return nil, fmt.Errorf("error rendering chart %s: %w", chartPath, err)
+	}
+
+	return rendered, nil
 }
