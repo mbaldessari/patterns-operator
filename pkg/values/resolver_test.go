@@ -271,7 +271,7 @@ func TestDotPathToNestedMap(t *testing.T) {
 func TestResolveSharedValueFiles(t *testing.T) {
 	t.Run("nonexistent path returns error", func(t *testing.T) {
 		input := ResolveInput{LocalCheckoutPath: "/nonexistent/path"}
-		_, err := ResolveSharedValueFiles(input, "")
+		_, err := ResolveSharedValueFiles(&input, "")
 		if err == nil {
 			t.Fatal("expected error for nonexistent path")
 		}
@@ -286,7 +286,7 @@ func TestResolveSharedValueFiles(t *testing.T) {
 			LocalCheckoutPath: td,
 			ClusterGroupName:  "hub",
 		}
-		result, err := ResolveSharedValueFiles(input, "")
+		result, err := ResolveSharedValueFiles(&input, "")
 		assertNoError(t, err)
 		if result != nil {
 			t.Errorf("expected nil, got %v", result)
@@ -306,7 +306,7 @@ func TestResolveSharedValueFiles(t *testing.T) {
 				"global.clusterPlatform": "AWS",
 			},
 		}
-		result, err := ResolveSharedValueFiles(input, "")
+		result, err := ResolveSharedValueFiles(&input, "")
 		assertNoError(t, err)
 		if len(result) != 1 {
 			t.Fatalf("expected 1 result, got %d: %v", len(result), result)
@@ -330,7 +330,7 @@ func TestResolveSharedValueFiles(t *testing.T) {
 				"global.clusterPlatform": "Azure",
 			},
 		}
-		result, err := ResolveSharedValueFiles(input, "$patternref")
+		result, err := ResolveSharedValueFiles(&input, "$patternref")
 		assertNoError(t, err)
 		if len(result) != 1 {
 			t.Fatalf("expected 1 result, got %d: %v", len(result), result)
@@ -358,7 +358,7 @@ func TestResolveSharedValueFiles(t *testing.T) {
 				"global": map[string]any{"clusterPlatform": "GCP"},
 			},
 		}
-		result, err := ResolveSharedValueFiles(input, "")
+		result, err := ResolveSharedValueFiles(&input, "")
 		assertNoError(t, err)
 		if len(result) != 1 {
 			t.Fatalf("expected 1 result, got %d", len(result))

@@ -101,7 +101,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		TemplateParameters: templateParams,
 	}
 
-	sharedFiles, err := values.ResolveSharedValueFiles(input, absPath)
+	sharedFiles, err := values.ResolveSharedValueFiles(&input, absPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "Error resolving shared value files: %v\n", err)
 		return 1

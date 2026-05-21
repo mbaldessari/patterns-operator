@@ -242,7 +242,7 @@ func DotPathToNestedMap(params map[string]string) map[string]any {
 //  4. Templates each entry using Helm (e.g. '/overrides/values-{{ $.Values.global.clusterPlatform }}.yaml'
 //     becomes '/overrides/values-AWS.yaml')
 //  5. Returns the resolved file paths with the given prefix prepended
-func ResolveSharedValueFiles(input ResolveInput, prefix string) ([]string, error) {
+func ResolveSharedValueFiles(input *ResolveInput, prefix string) ([]string, error) {
 	gitDir := input.LocalCheckoutPath
 	if _, err := os.Stat(gitDir); err != nil {
 		return nil, fmt.Errorf("%s path does not exist", gitDir)

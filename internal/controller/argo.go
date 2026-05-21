@@ -710,7 +710,7 @@ func getSharedValueFiles(p *api.Pattern, prefix string) ([]string, error) {
 		ExtraValueFiles:   p.Spec.ExtraValueFiles,
 		TemplateValues:    convertArgoHelmParametersToMap(newApplicationParameters(p)),
 	}
-	return values.ResolveSharedValueFiles(input, prefix)
+	return values.ResolveSharedValueFiles(&input, prefix)
 }
 
 func commonSyncPolicy(p *api.Pattern) *argoapi.SyncPolicy {
