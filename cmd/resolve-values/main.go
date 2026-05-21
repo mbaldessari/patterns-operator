@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,23 +12,33 @@ import (
 )
 
 func main() {
-	repoPath := flag.String("path", ".", "Path to the patterns git repo checkout")
-	clusterGroup := flag.String("cluster-group", "hub", "Cluster group name")
-	clusterPlatform := flag.String("cluster-platform", "", "Cluster platform (e.g. AWS, Azure)")
-	clusterVersion := flag.String("cluster-version", "", "Cluster version (e.g. 4.12)")
-	clusterName := flag.String("cluster-name", "", "Cluster name")
-	extraValueFiles := flag.String("extra-value-files", "", "Comma-separated extra value file paths")
-	flag.Parse()
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+func run(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("resolve-values", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	repoPath := fs.String("path", ".", "Path to the patterns git repo checkout")
+	clusterGroup := fs.String("cluster-group", "hub", "Cluster group name")
+	clusterPlatform := fs.String("cluster-platform", "", "Cluster platform (e.g. AWS, Azure)")
+	clusterVersion := fs.String("cluster-version", "", "Cluster version (e.g. 4.12)")
+	clusterName := fs.String("cluster-name", "", "Cluster name")
+	extraValueFiles := fs.String("extra-value-files", "", "Comma-separated extra value file paths")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
 
 	absPath, err := filepath.Abs(*repoPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error resolving path: %v\n", err)
+		return 1
 	}
 
 	if _, err := os.Stat(absPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Path does not exist: %s\n", absPath)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Path does not exist: %s\n", absPath)
+		return 1
 	}
 
 	var extras []string
@@ -38,13 +49,13 @@ func main() {
 	baseFiles := values.BuildValueFiles(*clusterGroup, *clusterPlatform,
 		*clusterVersion, *clusterName, extras, absPath)
 
-	fmt.Println("Base value files:")
+	fmt.Fprintln(stdout, "Base value files:")
 	for _, f := range baseFiles {
 		status := "exists "
 		if _, err := os.Stat(f); os.IsNotExist(err) {
 			status = "missing"
 		}
-		fmt.Printf("  [%s] %s\n", status, f)
+		fmt.Fprintf(stdout, "  [%s] %s\n", status, f)
 	}
 
 	templateParams := make(map[string]string)
@@ -70,17 +81,18 @@ func main() {
 
 	sharedFiles, err := values.ResolveSharedValueFiles(input, absPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error resolving shared value files: %v\n", err)
-		os.Exit(1)
+		fmt.Fprintf(stderr, "Error resolving shared value files: %v\n", err)
+		return 1
 	}
 
-	fmt.Println()
+	fmt.Fprintln(stdout)
 	if len(sharedFiles) == 0 {
-		fmt.Println("No shared value files defined.")
+		fmt.Fprintln(stdout, "No shared value files defined.")
 	} else {
-		fmt.Println("Shared value files (from clusterGroup.sharedValueFiles):")
+		fmt.Fprintln(stdout, "Shared value files (from clusterGroup.sharedValueFiles):")
 		for _, f := range sharedFiles {
-			fmt.Printf("  %s\n", f)
+			fmt.Fprintf(stdout, "  %s\n", f)
 		}
 	}
+	return 0
 }
