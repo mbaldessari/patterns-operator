@@ -140,7 +140,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "Error rendering %s: %v\n", f, err)
 				return 1
 			}
-			fmt.Fprintf(stdout, "\n--- %s ---\n%s", f, rendered)
+			fmt.Fprintf(stdout, "\n# %s\n", f)
+			for _, line := range strings.Split(rendered, "\n") {
+				trimmed := strings.TrimSpace(line)
+				if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+					continue
+				}
+				fmt.Fprintln(stdout, line)
+			}
 		}
 	}
 

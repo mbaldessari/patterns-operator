@@ -229,10 +229,10 @@ func TestRenderValueFiles(t *testing.T) {
 	}
 
 	out := stdout.String()
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-global.yaml")) {
 		t.Errorf("missing rendered header for values-global.yaml:\n%s", out)
 	}
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-hub.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-hub.yaml")) {
 		t.Errorf("missing rendered header for values-hub.yaml:\n%s", out)
 	}
 	if !strings.Contains(out, "'/overrides/values-AWS.yaml'") {
@@ -255,10 +255,10 @@ func TestRenderValueFilesSkipsMissing(t *testing.T) {
 	}
 
 	out := stdout.String()
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-global.yaml")) {
 		t.Errorf("missing rendered header for values-global.yaml:\n%s", out)
 	}
-	if strings.Contains(out, "values-hub.yaml ---") {
+	if strings.Contains(out, "# "+filepath.Join(td, "values-hub.yaml")) {
 		t.Errorf("should not render missing values-hub.yaml:\n%s", out)
 	}
 }
@@ -300,17 +300,44 @@ func TestRenderValueFilesMultiple(t *testing.T) {
 	}
 
 	out := stdout.String()
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-global.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-global.yaml")) {
 		t.Errorf("missing values-global.yaml rendered output:\n%s", out)
 	}
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-hub.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-hub.yaml")) {
 		t.Errorf("missing values-hub.yaml rendered output:\n%s", out)
 	}
-	if !strings.Contains(out, "--- "+filepath.Join(td, "values-AWS.yaml")+" ---") {
+	if !strings.Contains(out, "# "+filepath.Join(td, "values-AWS.yaml")) {
 		t.Errorf("missing values-AWS.yaml rendered output:\n%s", out)
 	}
 	if !strings.Contains(out, "region: us-east-1") {
 		t.Errorf("expected AWS content in rendered output:\n%s", out)
+	}
+}
+
+func TestRenderValueFilesStripsComments(t *testing.T) {
+	td := t.TempDir()
+	writeFile(t, filepath.Join(td, "values-global.yaml"),
+		"global:\n  pattern: test\n# this is a comment\n  # indented comment\nmain:\n  clusterGroupName: hub\n")
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{
+		"--patterndir", td,
+		"--cluster-platform", "AWS",
+		"-render-value-files",
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if strings.Contains(out, "this is a comment") {
+		t.Errorf("comments should be stripped from rendered output:\n%s", out)
+	}
+	if strings.Contains(out, "indented comment") {
+		t.Errorf("indented comments should be stripped from rendered output:\n%s", out)
+	}
+	if !strings.Contains(out, "pattern: test") {
+		t.Errorf("non-comment content should still be present:\n%s", out)
 	}
 }
 
