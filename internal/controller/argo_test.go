@@ -250,6 +250,60 @@ var _ = Describe("Argo Pattern", func() {
 					"myprefix/test2.yaml")))
 			})
 		})
+
+		Context("With variantDir set", func() {
+			BeforeEach(func() {
+				pattern.Spec.VariantDir = "variants/myvariant"
+			})
+			It("Inserts variantDir between empty prefix and value files", func() {
+				valueFiles := newApplicationValueFiles(pattern, "")
+				Expect(valueFiles).To(Equal([]string{
+					"/variants/myvariant/values-global.yaml",
+					"/variants/myvariant/values-foogroup.yaml",
+					"/variants/myvariant/values-AWS.yaml",
+					"/variants/myvariant/values-AWS-4.12.yaml",
+					"/variants/myvariant/values-AWS-foogroup.yaml",
+					"/variants/myvariant/values-4.12-foogroup.yaml",
+					"/variants/myvariant/values-barcluster.yaml",
+				}))
+			})
+			It("Inserts variantDir between prefix and value files", func() {
+				valueFiles := newApplicationValueFiles(pattern, "$patternref")
+				Expect(valueFiles).To(Equal([]string{
+					"$patternref/variants/myvariant/values-global.yaml",
+					"$patternref/variants/myvariant/values-foogroup.yaml",
+					"$patternref/variants/myvariant/values-AWS.yaml",
+					"$patternref/variants/myvariant/values-AWS-4.12.yaml",
+					"$patternref/variants/myvariant/values-AWS-foogroup.yaml",
+					"$patternref/variants/myvariant/values-4.12-foogroup.yaml",
+					"$patternref/variants/myvariant/values-barcluster.yaml",
+				}))
+			})
+		})
+
+		Context("With variantDir and extra valuefiles", func() {
+			BeforeEach(func() {
+				pattern.Spec.VariantDir = "variants/myvariant"
+				pattern.Spec.ExtraValueFiles = []string{
+					"test1.yaml",
+					"/test2.yaml",
+				}
+			})
+			It("Inserts variantDir for both default and extra value files", func() {
+				valueFiles := newApplicationValueFiles(pattern, "$patternref")
+				Expect(valueFiles).To(Equal([]string{
+					"$patternref/variants/myvariant/values-global.yaml",
+					"$patternref/variants/myvariant/values-foogroup.yaml",
+					"$patternref/variants/myvariant/values-AWS.yaml",
+					"$patternref/variants/myvariant/values-AWS-4.12.yaml",
+					"$patternref/variants/myvariant/values-AWS-foogroup.yaml",
+					"$patternref/variants/myvariant/values-4.12-foogroup.yaml",
+					"$patternref/variants/myvariant/values-barcluster.yaml",
+					"$patternref/variants/myvariant/test1.yaml",
+					"$patternref/variants/myvariant/test2.yaml",
+				}))
+			})
+		})
 	})
 
 	Describe("Argo Helm Functions", func() {
@@ -452,6 +506,10 @@ var _ = Describe("Argo Pattern", func() {
 						ForceString: false,
 					},
 					argoapi.HelmParameter{
+						Name:  "global.variantDir",
+						Value: "",
+					},
+					argoapi.HelmParameter{
 						Name:  "global.gitOpsSubNamespace",
 						Value: GitOpsDefaultSubscriptionNamespace,
 					},
@@ -494,6 +552,10 @@ var _ = Describe("Argo Pattern", func() {
 						ForceString: false,
 					},
 					argoapi.HelmParameter{
+						Name:  "global.variantDir",
+						Value: "",
+					},
+					argoapi.HelmParameter{
 						Name:  "global.gitOpsSubNamespace",
 						Value: GitOpsDefaultSubscriptionNamespace,
 					},
@@ -533,6 +595,10 @@ var _ = Describe("Argo Pattern", func() {
 						Name:        "global.experimentalCapabilities",
 						Value:       "",
 						ForceString: false,
+					},
+					argoapi.HelmParameter{
+						Name:  "global.variantDir",
+						Value: "",
 					},
 					argoapi.HelmParameter{
 						Name:  "global.gitOpsSubNamespace",

@@ -152,6 +152,12 @@ spec:
                       in order to deploy the pattern. Defaults to https://charts.validatedpatterns.io/
                     type: string
                 type: object
+              variantDir:
+                description: |-
+                  Optional directory prefix inserted between the pattern ref and values-* files.
+                  When set, value files are read from this subdirectory (e.g. "variants/myvariant")
+                  and it is passed to Helm charts as global.variantDir.
+                type: string
             required:
             - clusterGroupName
             - gitSpec

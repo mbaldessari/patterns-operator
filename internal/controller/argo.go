@@ -82,6 +82,7 @@ const (
 	ParamVpArgoNamespace           = "global.vpArgoNamespace"
 	ParamMultiSourceTargetRevision = "global.multiSourceTargetRevision"
 	ParamDeletePattern             = "global.deletePattern"
+	ParamVariantDir                = "global.variantDir"
 )
 
 // ConsoleLink constants
@@ -701,6 +702,10 @@ func newApplicationParameters(p *api.Pattern) []argoapi.HelmParameter {
 			Name:  ParamExperimentalCapabilities,
 			Value: p.Spec.ExperimentalCapabilities,
 		},
+		{
+			Name:  ParamVariantDir,
+			Value: p.Spec.VariantDir,
+		},
 	}
 	_, gitOpsSubNamespace := DetectGitOpsSubscription()
 	parameters = append(parameters, argoapi.HelmParameter{
@@ -768,18 +773,22 @@ func convertArgoHelmParametersToMap(params []argoapi.HelmParameter) map[string]a
 }
 
 func newApplicationValueFiles(p *api.Pattern, prefix string) []string {
+	effectivePrefix := prefix
+	if p.Spec.VariantDir != "" {
+		effectivePrefix = fmt.Sprintf("%s/%s", prefix, p.Spec.VariantDir)
+	}
 	files := []string{
-		fmt.Sprintf("%s/values-global.yaml", prefix),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Status.ClusterPlatform),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterPlatform, p.Status.ClusterVersion),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterPlatform, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s-%s.yaml", prefix, p.Status.ClusterVersion, p.Spec.ClusterGroupName),
-		fmt.Sprintf("%s/values-%s.yaml", prefix, p.Status.ClusterName),
+		fmt.Sprintf("%s/values-global.yaml", effectivePrefix),
+		fmt.Sprintf("%s/values-%s.yaml", effectivePrefix, p.Spec.ClusterGroupName),
+		fmt.Sprintf("%s/values-%s.yaml", effectivePrefix, p.Status.ClusterPlatform),
+		fmt.Sprintf("%s/values-%s-%s.yaml", effectivePrefix, p.Status.ClusterPlatform, p.Status.ClusterVersion),
+		fmt.Sprintf("%s/values-%s-%s.yaml", effectivePrefix, p.Status.ClusterPlatform, p.Spec.ClusterGroupName),
+		fmt.Sprintf("%s/values-%s-%s.yaml", effectivePrefix, p.Status.ClusterVersion, p.Spec.ClusterGroupName),
+		fmt.Sprintf("%s/values-%s.yaml", effectivePrefix, p.Status.ClusterName),
 	}
 
 	for _, extra := range p.Spec.ExtraValueFiles {
-		extraValueFile := fmt.Sprintf("%s/%s", prefix, strings.TrimPrefix(extra, "/"))
+		extraValueFile := fmt.Sprintf("%s/%s", effectivePrefix, strings.TrimPrefix(extra, "/"))
 		log.Printf("Values file %q added", extraValueFile)
 		files = append(files, extraValueFile)
 	}

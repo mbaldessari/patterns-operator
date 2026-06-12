@@ -85,6 +85,12 @@ type PatternSpec struct {
 	// Comma separated capabilities to enable certain experimental features
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=10,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	ExperimentalCapabilities string `json:"experimentalCapabilities,omitempty"`
+
+	// Optional directory prefix inserted between the pattern ref and values-* files.
+	// When set, value files are read from this subdirectory (e.g. "variants/myvariant")
+	// and it is passed to Helm charts as global.variantDir.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=11,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	VariantDir string `json:"variantDir,omitempty"`
 }
 
 type GitConfig struct {
