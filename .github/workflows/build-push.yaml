@@ -18,7 +18,48 @@ env:
   TAG: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref_name == 'main' && 'latest' || github.ref_name) }}
 
 jobs:
+  compute-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.compute.outputs.image_tag }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Compute image tag with release branch suffix
+        id: compute
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            echo "image_tag=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+          elif [ "${REF_NAME}" = "main" ]; then
+            echo "image_tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            # Tag push - check if the tagged commit is on a release branch
+            BRANCHES=$(git branch -r --contains HEAD | grep -v '\->' | sed 's|^ *origin/||')
+            ON_MAIN=$(echo "${BRANCHES}" | grep -x 'main' || true)
+            if [ -n "${ON_MAIN}" ]; then
+              echo "image_tag=${REF_NAME}" >> "$GITHUB_OUTPUT"
+            else
+              RELEASE_BRANCH=$(echo "${BRANCHES}" | grep -E '^release-' | head -1)
+              if [ -n "${RELEASE_BRANCH}" ]; then
+                echo "image_tag=${REF_NAME}-${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
+              else
+                echo "image_tag=${REF_NAME}" >> "$GITHUB_OUTPUT"
+              fi
+            fi
+          fi
+
   build-container:
+    needs: [compute-tag]
     strategy:
       matrix:
         include:
@@ -39,7 +80,7 @@ jobs:
       - name: Build container and save tarball
         env:
           TARGETARCH: ${{ matrix.targetarch }}
-          OPERATOR_IMG: ${{ env.NAME }}:${{ env.TAG }}
+          OPERATOR_IMG: ${{ env.NAME }}:${{ needs.compute-tag.outputs.image_tag }}
           KEY: ${{ secrets.API_KEY }}
         run: |
           export APIFILE="internal/controller/apikey.txt"
@@ -63,6 +104,7 @@ jobs:
           retention-days: 1
 
   build-console:
+    needs: [compute-tag]
     strategy:
       matrix:
         include:
@@ -83,7 +125,7 @@ jobs:
       - name: Build console container image and save tarball
         env:
           TARGETARCH: ${{ matrix.targetarch }}
-          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ env.TAG }}
+          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ needs.compute-tag.outputs.image_tag }}
         run: |
           make "console-build-${TARGETARCH}"
           buildah push "${CONSOLE_PLUGIN_IMAGE_BASE}-${TARGETARCH}" "docker-archive:/tmp/console-image-${TARGETARCH}.tar:${CONSOLE_PLUGIN_IMAGE_BASE}-${TARGETARCH}"
@@ -115,7 +157,7 @@ jobs:
           fi
 
   push-multiarch-manifest:
-    needs: [pre-push-check]
+    needs: [pre-push-check, compute-tag]
     if: github.event_name != 'pull_request'
     strategy:
       matrix:
@@ -181,8 +223,8 @@ jobs:
         id: manifest-push
         env:
           UPLOADREGISTRY: ${{ matrix.upload_registry }}
-          OPERATOR_IMG: ${{ env.NAME }}:${{ env.TAG }}
-          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ env.TAG }}
+          OPERATOR_IMG: ${{ env.NAME }}:${{ needs.compute-tag.outputs.image_tag }}
+          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ needs.compute-tag.outputs.image_tag }}
         run: |
           make buildah-manifest
           buildah manifest add --arch=amd64 "${REGISTRY}/${OPERATOR_IMG}" "${REGISTRY}/${OPERATOR_IMG}-amd64"
@@ -209,8 +251,8 @@ jobs:
           DIGEST: ${{ steps.manifest-push.outputs.digest }}
           CONSOLE_DIGEST: ${{ steps.manifest-push.outputs.console_digest }}
           UPLOADREGISTRY: ${{ matrix.upload_registry }}
-          OPERATOR_IMG: ${{ env.NAME }}:${{ env.TAG }}
-          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ env.TAG }}
+          OPERATOR_IMG: ${{ env.NAME }}:${{ needs.compute-tag.outputs.image_tag }}
+          CONSOLE_PLUGIN_IMAGE_BASE: ${{ env.CONSOLE_NAME }}:${{ needs.compute-tag.outputs.image_tag }}
         run: |
           cat "${XDG_RUNTIME_DIR}/containers/auth.json" > ~/.docker/config.json
           cosign sign --yes "${UPLOADREGISTRY}/${OPERATOR_IMG}@${DIGEST}"
