@@ -2,7 +2,7 @@ name: Build (amd64 and arm64) and push to quay registries
 on:
   push:
     branches: ["main"]
-    tags: ['[0-9]+.[0-9]+.[0-9]+']
+    tags: ['[0-9]+.[0-9]+.[0-9]+', '[0-9]+.[0-9]+.[0-9]+-release-*']
   pull_request:
     branches: ["main"]
 
@@ -31,7 +31,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Compute image tag with release branch suffix
+      - name: Validate tag matches branch
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BRANCHES=$(git branch -r --contains HEAD | grep -v '\->' | sed 's|^ *origin/||')
+          if [[ "${REF_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+-release-(.+)$ ]]; then
+            EXPECTED_BRANCH="release-${BASH_REMATCH[1]}"
+            if ! echo "${BRANCHES}" | grep -qx "${EXPECTED_BRANCH}"; then
+              echo "::error::Tag ${REF_NAME} can only be set on branch ${EXPECTED_BRANCH}, but commit is on: $(echo ${BRANCHES} | tr '\n' ' ')"
+              exit 1
+            fi
+          elif [[ "${REF_NAME}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if ! echo "${BRANCHES}" | grep -qx 'main'; then
+              echo "::error::Plain version tag ${REF_NAME} can only be set on the main branch, but commit is on: $(echo ${BRANCHES} | tr '\n' ' ')"
+              exit 1
+            fi
+          fi
+
+      - name: Compute image tag
         id: compute
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -43,19 +62,7 @@ jobs:
           elif [ "${REF_NAME}" = "main" ]; then
             echo "image_tag=latest" >> "$GITHUB_OUTPUT"
           else
-            # Tag push - check if the tagged commit is on a release branch
-            BRANCHES=$(git branch -r --contains HEAD | grep -v '\->' | sed 's|^ *origin/||')
-            ON_MAIN=$(echo "${BRANCHES}" | grep -x 'main' || true)
-            if [ -n "${ON_MAIN}" ]; then
-              echo "image_tag=${REF_NAME}" >> "$GITHUB_OUTPUT"
-            else
-              RELEASE_BRANCH=$(echo "${BRANCHES}" | grep -E '^release-' | head -1)
-              if [ -n "${RELEASE_BRANCH}" ]; then
-                echo "image_tag=${REF_NAME}-${RELEASE_BRANCH}" >> "$GITHUB_OUTPUT"
-              else
-                echo "image_tag=${REF_NAME}" >> "$GITHUB_OUTPUT"
-              fi
-            fi
+            echo "image_tag=${REF_NAME}" >> "$GITHUB_OUTPUT"
           fi
 
   build-container:
@@ -151,8 +158,9 @@ jobs:
       - name: Check that tag version corresponds to metadata version
         run: |-
           VERSION=$(yq -r '.spec.version' bundle/manifests/patterns-operator.clusterserviceversion.yaml)
-          if [ "${VERSION}" != "${TAG}" ]; then
-            echo "Version in metadata ${VERSION} whereas tag is different: ${TAG}"
+          BASE_TAG="${TAG%%-release-*}"
+          if [ "${VERSION}" != "${BASE_TAG}" ]; then
+            echo "Version in metadata ${VERSION} whereas tag is different: ${BASE_TAG} (full tag: ${TAG})"
             exit 1
           fi
 
