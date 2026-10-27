@@ -170,10 +170,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - upload_registry: quay.io/validatedpatterns
+          - upload_registry: quay.io/rhn_support_mbaldess
             legacy: false
-          - upload_registry: quay.io/hybridcloudpatterns
-            legacy: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
